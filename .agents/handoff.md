@@ -6,7 +6,11 @@
 - 已完成多调用方 client 凭证换取 TOKEN
 - 已完成上传文件到 OSS 与删除 OSS 对象接口
 - 已创建 `.env.example` 与可运行 `.env`
+- 已补充 `pnpm build` 生产构建脚本
+- 已补充 Dockerfile 与 docker-compose.yml，支持容器化部署
+- 已通过 `pnpm build`
 - 已通过 `pnpm typecheck`
+- 已通过 `docker compose config` 与 `docker compose build`
 - 已完成本地 HTTP 验证与真实 OSS 上传/删除烟测
 - 已处理 VS Code 中 `@koa/router` 上下文类型无法识别 `ctx.request.files` 的诊断
 
@@ -20,14 +24,28 @@
 ## 本地运行
 
 ```bash
+pnpm dev
+```
+
+## 生产构建运行
+
+```bash
+pnpm build
 pnpm start
 ```
 
-当前本地服务已在 `http://localhost:3000` 启动。
+## Docker Compose 运行
+
+```bash
+docker compose up -d --build
+```
+
+当前本地服务已在 `http://localhost:9512` 启动。
 
 ## 注意事项
 
 - `.env` 中已配置真实 OSS AccessKey 和 Bucket。
+- Docker Compose 会读取 `.env`，不要将 `.env` 提交到仓库。
 - `AUTH_CLIENTS` 当前只有 demo 调用方，可按 JSON 数组追加更多调用方。
 - TOKEN 使用 HMAC SHA-256 签名，载荷包含 `clientId`、签发时间、过期时间和 token id。
 - 上传接口字段名为 `file`，可选传路径式 `objectKey`，最终 OSS 对象路径为 `clientId/objectKey`。

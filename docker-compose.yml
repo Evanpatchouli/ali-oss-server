@@ -1,0 +1,9 @@
+services:
+  ali-oss-server:
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-9512}:${PORT:-9512}"
+    restart: unless-stopped

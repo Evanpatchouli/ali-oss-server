@@ -6,6 +6,7 @@
 
 ```bash
 pnpm install
+pnpm build
 pnpm start
 ```
 
@@ -15,11 +16,26 @@ pnpm start
 pnpm dev
 ```
 
+生产构建：
+
+```bash
+pnpm build
+pnpm start
+```
+
 类型检查：
 
 ```bash
 pnpm typecheck
 ```
+
+Docker Compose 启动：
+
+```bash
+docker compose up -d --build
+```
+
+Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` 端口映射到容器内 `${PORT:-9512}` 端口。
 
 ## 环境变量
 
@@ -27,7 +43,7 @@ pnpm typecheck
 
 | 变量 | 说明 |
 | --- | --- |
-| `PORT` | 服务端口，默认示例为 `3000` |
+| `PORT` | 服务端口，默认示例为 `9512` |
 | `AUTH_CLIENTS` | 调用方凭证数组，JSON 格式 |
 | `TOKEN_SECRET` | TOKEN HMAC 签名密钥，至少 16 个字符 |
 | `TOKEN_EXPIRES_IN_SECONDS` | TOKEN 有效期，单位秒 |
@@ -49,13 +65,13 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 ### 健康检查
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:9512/health
 ```
 
 ### 获取 TOKEN
 
 ```bash
-curl -X POST http://localhost:3000/api/auth/token \
+curl -X POST http://localhost:9512/api/auth/token \
   -H "Content-Type: application/json" \
   -d '{"clientId":"demo-client","clientSecret":"demo-secret"}'
 ```
@@ -65,7 +81,7 @@ curl -X POST http://localhost:3000/api/auth/token \
 ### 上传文件
 
 ```bash
-curl -X POST http://localhost:3000/api/oss/upload \
+curl -X POST http://localhost:9512/api/oss/upload \
   -H "Authorization: Bearer <accessToken>" \
   -F "file=@/path/to/file.png" \
   -F "objectKey=uploads/file.png" \
@@ -83,7 +99,7 @@ curl -X POST http://localhost:3000/api/oss/upload \
 ### 删除文件
 
 ```bash
-curl -X DELETE http://localhost:3000/api/oss/object \
+curl -X DELETE http://localhost:9512/api/oss/object \
   -H "Authorization: Bearer <accessToken>" \
   -H "Content-Type: application/json" \
   -d '{"objectKey":"uploads/file.png"}'

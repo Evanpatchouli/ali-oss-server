@@ -15,3 +15,10 @@
 - 服务层统一校验 `objectKey`，禁止空路径、相对路径片段和控制字符。
 - OSS 对象路径按调用方隔离：上传和删除都会使用当前 TOKEN 中的 `clientId` 作为目录前缀，支持 `clientId/objectKey` 路径式结构。
 - 上传接口的 `randomFilename=true` 只重写最后一级文件名，保留调用方提供的目录和原文件扩展名。
+
+## 生产构建与容器化
+
+- 生产运行统一使用 `pnpm build` 编译到 `dist`，再通过 `node dist/index.js` 启动。
+- 源码直跑保留为 `pnpm start:ts`，避免生产入口依赖 `tsx`。
+- Docker 镜像采用多阶段构建：构建阶段安装完整依赖并执行 TypeScript 编译，运行阶段只安装生产依赖并复制 `dist`。
+- Docker Compose 读取 `.env`，端口映射使用 `${PORT:-9512}:${PORT:-9512}`，确保容器内监听端口与应用配置一致。

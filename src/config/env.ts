@@ -116,7 +116,7 @@ if (tokenSecret.length < 16) {
 }
 
 export const config: AppConfig = {
-  port: parsePositiveInt("PORT", 3000),
+  port: parsePositiveInt("PORT", 9512),
   auth: {
     clients: parseAuthClients(requiredEnv("AUTH_CLIENTS")),
     tokenSecret,

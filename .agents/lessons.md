@@ -12,3 +12,5 @@
 ## pnpm 与 tsx
 
 - 安装 `tsx` 后，pnpm 可能提示 `esbuild` 构建脚本被忽略；本项目实际运行 `pnpm start` 与 `pnpm typecheck` 均正常。
+- pnpm 11 的构建脚本审批配置应写在 `pnpm-workspace.yaml` 的 `allowBuilds` 中，例如 `esbuild: true`；`package.json` 中旧的 `pnpm.onlyBuiltDependencies` 不再生效。
+- TypeScript 6 在启用 `outDir` 构建时可能要求显式声明 `rootDir`，本项目应固定为 `src`，确保输出到 `dist` 的目录布局稳定。
