@@ -3,7 +3,7 @@
 ## 当前状态
 
 - 已完成 Koa Web 服务实现
-- 已完成多调用方 client 凭证换取 TOKEN
+- 已完成多调用方 client 签名换取 TOKEN
 - 已完成上传文件到 OSS 与删除 OSS 对象接口
 - 已创建 `.env.example` 与可运行 `.env`
 - 已补充 `pnpm build` 生产构建脚本
@@ -47,6 +47,8 @@ docker compose up -d --build
 - `.env` 中已配置真实 OSS AccessKey 和 Bucket。
 - Docker Compose 会读取 `.env`，不要将 `.env` 提交到仓库。
 - `AUTH_CLIENTS` 当前只有 demo 调用方，可按 JSON 数组追加更多调用方。
+- `POST /api/auth/token` 使用请求头 `x-client-id` 和请求体 `{ "sign": string }`，不再接收明文 `clientSecret`。
+- `sign` 生成规则为 `HMAC-SHA256(clientId, clientSecret)`，输出 `base64url`。
 - TOKEN 使用 HMAC SHA-256 签名，载荷包含 `clientId`、签发时间、过期时间和 token id。
 - 上传接口字段名为 `file`，可选传路径式 `objectKey`，最终 OSS 对象路径为 `clientId/objectKey`。
 - 上传接口可选传 `randomFilename=true`，服务会保留目录和扩展名，只随机重写最后一级文件名。

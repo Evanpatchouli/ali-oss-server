@@ -70,10 +70,23 @@ curl http://localhost:9512/health
 
 ### 获取 TOKEN
 
+`sign` 生成规则：
+
+```text
+sign = HMAC-SHA256(clientId, clientSecret)，输出为 base64url
+```
+
+Node.js 示例：
+
+```bash
+node -e "console.log(require('node:crypto').createHmac('sha256', 'demo-secret').update('demo-client').digest('base64url'))"
+```
+
 ```bash
 curl -X POST http://localhost:9512/api/auth/token \
+  -H "x-client-id: demo-client" \
   -H "Content-Type: application/json" \
-  -d '{"clientId":"demo-client","clientSecret":"demo-secret"}'
+  -d '{"sign":"<sign>"}'
 ```
 
 响应中的 `accessToken` 用于访问上传和删除接口。

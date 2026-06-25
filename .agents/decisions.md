@@ -3,7 +3,9 @@
 ## 多调用方凭证与服务端 TOKEN
 
 - 使用 `.env` 中的 `AUTH_CLIENTS` 维护多组 `clientId` / `clientSecret`。
-- `POST /api/auth/token` 只负责校验调用方凭证并签发服务端 TOKEN。
+- `POST /api/auth/token` 只负责校验调用方签名并签发服务端 TOKEN。
+- TOKEN 接口通过请求头 `x-client-id` 获取调用方标识，请求体只接收 `{ "sign": string }`。
+- `sign` 使用 `HMAC-SHA256(clientId, clientSecret)` 生成，输出编码为 `base64url`，服务端按 `clientId` 查找配置中的 `clientSecret` 后重新计算并做常量时间比对。
 - 上传和删除接口只接受 `Authorization: Bearer <TOKEN>`。
 - TOKEN 使用 Node.js 内置 `crypto` 做 HMAC SHA-256 签名，避免为当前简单需求额外引入 JWT 依赖。
 - TOKEN 载荷保留 `clientId`，便于后续审计、限流或权限细分。

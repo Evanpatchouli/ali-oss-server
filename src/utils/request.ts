@@ -36,6 +36,18 @@ export function readRequiredStringField(source: Record<string, unknown>, fieldNa
   return value;
 }
 
+/**
+ * Reads a required string request header.
+ */
+export function readRequiredHeader(ctx: Context, headerName: string): string {
+  const value = ctx.get(headerName).trim();
+  if (!value) {
+    throw badRequest("INVALID_HEADER", `${headerName} header is required`);
+  }
+
+  return value;
+}
+
 export function readOptionalStringField(source: Record<string, unknown>, fieldName: string): string | undefined {
   const rawValue = source[fieldName];
   if (rawValue === undefined || rawValue === null) {

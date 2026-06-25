@@ -1,18 +1,27 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { config, type AuthClient } from "../config/env.js";
 import { unauthorized } from "../utils/http-error.js";
 
 /**
- * Validates a configured caller credential pair.
+ * Validates a configured caller signature.
  */
-export function authenticateClient(clientId: string, clientSecret: string): AuthClient {
+export function authenticateClient(clientId: string, receivedSign: string): AuthClient {
   const client = config.auth.clients.find((item) => item.clientId === clientId);
-  if (!client || !safeStringEqual(client.clientSecret, clientSecret)) {
-    throw unauthorized("INVALID_CLIENT_CREDENTIALS", "Invalid clientId or clientSecret");
+  if (!client) {
+    throw unauthorized("INVALID_CLIENT_CREDENTIALS", "Invalid client credentials");
+  }
+
+  const expectedSign = signClientId(client.clientId, client.clientSecret);
+  if (!safeStringEqual(receivedSign, expectedSign)) {
+    throw unauthorized("INVALID_CLIENT_CREDENTIALS", "Invalid client credentials");
   }
 
   return client;
+}
+
+function signClientId(clientId: string, clientSecret: string): string {
+  return createHmac("sha256", clientSecret).update(clientId).digest("base64url");
 }
 
 function safeStringEqual(left: string, right: string): boolean {

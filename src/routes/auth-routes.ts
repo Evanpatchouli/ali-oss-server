@@ -1,7 +1,7 @@
 import Router from "@koa/router";
 
 import { authenticateClient } from "../services/auth-service.js";
-import { readObjectBody, readRequiredStringField } from "../utils/request.js";
+import { readObjectBody, readRequiredHeader, readRequiredStringField } from "../utils/request.js";
 import { signAccessToken } from "../utils/token.js";
 
 /**
@@ -12,9 +12,9 @@ export function createAuthRouter(): Router {
 
   router.post("/token", (ctx) => {
     const body = readObjectBody(ctx);
-    const clientId = readRequiredStringField(body, "clientId");
-    const clientSecret = readRequiredStringField(body, "clientSecret");
-    const client = authenticateClient(clientId, clientSecret);
+    const clientId = readRequiredHeader(ctx, "x-client-id");
+    const sign = readRequiredStringField(body, "sign");
+    const client = authenticateClient(clientId, sign);
     const token = signAccessToken(client.clientId);
 
     ctx.body = {
