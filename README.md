@@ -7,12 +7,14 @@
 ```text
 apps/
   admin/   Vite 8 + React 19 + MUI 管理端
+  sdk/     纯 Node.js 调用 SDK
   server/  Koa + TypeScript OSS 服务
 ```
 
 ## 功能
 
 - 调用方签名换取业务 Bearer Token
+- 纯 Node.js SDK 调用封装
 - OSS 文件上传、流式上传、删除
 - 管理员账号密码登录管理端
 - 动态 IP 限制

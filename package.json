@@ -4,8 +4,9 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "pnpm -r --parallel --filter @ali-oss-server/server --filter @ali-oss-server/admin dev",
-    "build": "pnpm --filter @ali-oss-server/admin build && pnpm --filter @ali-oss-server/server build",
-    "typecheck": "pnpm --filter @ali-oss-server/admin typecheck && pnpm --filter @ali-oss-server/server typecheck",
+    "build:sdk": "pnpm --filter @ali-oss-server/sdk build",
+    "build": "pnpm --filter @ali-oss-server/sdk build && pnpm --filter @ali-oss-server/admin build && pnpm --filter @ali-oss-server/server build",
+    "typecheck": "pnpm --filter @ali-oss-server/sdk typecheck && pnpm --filter @ali-oss-server/admin typecheck && pnpm --filter @ali-oss-server/server typecheck",
     "start": "pnpm --filter @ali-oss-server/server start"
   }
 }
