@@ -1,13 +1,16 @@
 import Router from "@koa/router";
 
 import { authenticateAdmin } from "../middleware/authenticate-admin.js";
-import { getAllowedIps, isIpAllowlistEnabled, replaceAllowedIps } from "../services/ip-allowlist-service.js";
+import { getAllowedIps, isIpAllowlistEnabled } from "../services/ip-allowlist-service.js";
 import {
   getRateLimitSettings,
-  replaceRateLimitSettings,
   type RateLimitRule,
   type RouteRateLimitRule,
 } from "../services/rate-limit-service.js";
+import {
+  updatePersistedIpAllowlist,
+  updatePersistedRateLimitSettings,
+} from "../services/runtime-state-service.js";
 import { authenticateAdminUser } from "../services/admin-auth-service.js";
 import { badRequest } from "../utils/http-error.js";
 import { readObjectBody, readRequiredStringField } from "../utils/request.js";
@@ -43,10 +46,10 @@ export function createAdminRouter(): Router {
     };
   });
 
-  router.put("/ip-allowlist", authenticateAdmin(), (ctx) => {
+  router.put("/ip-allowlist", authenticateAdmin(), async (ctx) => {
     const body = readObjectBody(ctx);
     const ips = readStringArray(body.ips, "ips");
-    const nextIps = replaceAllowedIps(ips);
+    const nextIps = await updatePersistedIpAllowlist(ips);
 
     ctx.body = {
       ips: nextIps,
@@ -58,9 +61,9 @@ export function createAdminRouter(): Router {
     ctx.body = getRateLimitSettings();
   });
 
-  router.put("/rate-limit", authenticateAdmin(), (ctx) => {
+  router.put("/rate-limit", authenticateAdmin(), async (ctx) => {
     const body = readObjectBody(ctx);
-    const nextSettings = replaceRateLimitSettings({
+    const nextSettings = await updatePersistedRateLimitSettings({
       globalRule: readOptionalRateLimitRule(body.globalRule, "globalRule"),
       routeRules: readRouteRules(body.routeRules),
     });

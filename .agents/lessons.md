@@ -13,6 +13,7 @@
 - `@types/ali-oss` 中 `putStream` 的 `mime` 类型声明偏严格，实际调用可按需传入并在本地做窄范围类型兼容。
 - monorepo 下若服务端包不在仓库根目录，`dotenv.config()` 需要显式指定根级 `.env` 路径，否则会默认读取包目录下的 `.env`。
 - MUI 9 的 `Stack` 类型对系统属性收口更严格，`justifyContent`、`alignItems`、`flexWrap` 等布局值应通过 `sx` 传入更稳妥。
+- 需要简单持久化运行时配置时，用本地 JSON 文件比引入数据库更合适；只要启动加载、变更即落盘、坏文件回退默认即可满足管理后台场景。
 
 ## pnpm 与 tsx
 

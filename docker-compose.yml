@@ -6,4 +6,6 @@ services:
       - .env
     ports:
       - "${PORT:-9512}:${PORT:-9512}"
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped

@@ -102,7 +102,7 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 - 使用内存级 `allowlist`
 - 列表为空时，不限制访问 IP
 - 列表非空时，仅允许列表中的 IP 访问服务
-- 重启服务后，配置会恢复默认状态
+- 配置会持久化到根目录 `data/runtime-state.json`
 
 ### 接口限流
 
@@ -112,7 +112,8 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 - 全局限流和接口级限流可以同时生效，任一规则触发都会返回 `429`
 - 如果全局和接口级都未设置，则不限流
 - 当前限流按来源 IP 计数
-- 重启服务后，配置会恢复默认状态
+- 配置会持久化到根目录 `data/runtime-state.json`
+- Docker Compose 已挂载 `./data:/app/data`，容器重建后仍会保留这份状态文件
 
 ## 接口
 

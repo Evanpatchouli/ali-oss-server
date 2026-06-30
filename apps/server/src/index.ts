@@ -1,5 +1,8 @@
 import { createApp } from "./app.js";
 import { config } from "./config/env.js";
+import { initializeRuntimeState } from "./services/runtime-state-service.js";
+
+await initializeRuntimeState();
 
 const app = createApp();
 

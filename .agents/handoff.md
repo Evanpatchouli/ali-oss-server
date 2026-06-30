@@ -9,6 +9,7 @@
 - 已调整为 monorepo，拆分为 `apps/server` 与 `apps/admin`
 - 已新增 React + MUI 管理端，并由后端托管静态资源
 - 已新增管理员登录、动态 IP 限制和全局/接口级接口限流
+- 已为动态 IP 限制和限流配置新增本地 JSON 文件持久化
 - 已创建 `.env.example` 与可运行 `.env`
 - 已补充 `pnpm build` 生产构建脚本
 - 已补充 Dockerfile 与 docker-compose.yml，支持容器化部署
@@ -71,6 +72,7 @@ docker compose up -d --build
 - 流式上传接口会先检查 `Content-Length`，并在服务端用计数流兜底限制文件大小；超限时返回 `413 FILE_TOO_LARGE`。
 - 动态 IP 限制使用内存级 allowlist；列表为空时不限制访问 IP。
 - 接口限流支持全局规则和接口级规则，按来源 IP 计数，两者都未设置时不限流。
+- 动态 IP 限制和限流配置会持久化到根目录 `data/runtime-state.json`；Docker Compose 已挂载 `./data:/app/data`。
 - 后端在生产环境通过 `/admin` 托管 `apps/admin/dist` 静态资源。
 - 删除接口同样按当前 `clientId` 目录收口，传相对路径或接口返回的完整 `clientId/objectKey` 都可删除当前调用方目录下的对象。
 - 上传路由通过 `readRequestFiles` 对 `koa-body` 的 `files` 类型做收口，避免 IDE 中 `ctx.request.files` 被 `@koa/router` 类型覆盖。
