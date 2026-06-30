@@ -5,6 +5,7 @@
 - 已完成 Koa Web 服务实现
 - 已完成多调用方 client 签名换取 TOKEN
 - 已完成上传文件到 OSS 与删除 OSS 对象接口
+- 已新增直接读取原始请求体的流式上传接口
 - 已创建 `.env.example` 与可运行 `.env`
 - 已补充 `pnpm build` 生产构建脚本
 - 已补充 Dockerfile 与 docker-compose.yml，支持容器化部署
@@ -19,6 +20,7 @@
 - `GET /health`
 - `POST /api/auth/token`
 - `POST /api/oss/upload`
+- `POST /api/oss/upload-stream`
 - `DELETE /api/oss/object`
 
 ## 本地运行
@@ -52,5 +54,7 @@ docker compose up -d --build
 - TOKEN 使用 HMAC SHA-256 签名，载荷包含 `clientId`、签发时间、过期时间和 token id。
 - 上传接口字段名为 `file`，可选传路径式 `objectKey`，最终 OSS 对象路径为 `clientId/objectKey`。
 - 上传接口可选传 `randomFilename=true`，服务会保留目录和扩展名，只随机重写最后一级文件名。
+- 流式上传接口使用原始二进制请求体，不接收 `multipart/form-data`；元数据通过 `x-file-name`、`x-object-key`、`x-random-filename` 请求头传递。
+- 流式上传接口会先检查 `Content-Length`，并在服务端用计数流兜底限制文件大小；超限时返回 `413 FILE_TOO_LARGE`。
 - 删除接口同样按当前 `clientId` 目录收口，传相对路径或接口返回的完整 `clientId/objectKey` 都可删除当前调用方目录下的对象。
 - 上传路由通过 `readRequestFiles` 对 `koa-body` 的 `files` 类型做收口，避免 IDE 中 `ctx.request.files` 被 `@koa/router` 类型覆盖。

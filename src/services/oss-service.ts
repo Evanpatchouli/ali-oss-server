@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import type { Readable } from "node:stream";
 
 import client from "../core/client.js";
 import { config } from "../config/env.js";
@@ -31,11 +32,39 @@ export async function uploadLocalFile(input: {
     mime: input.mimeType ?? undefined,
   });
 
-  return {
-    objectKey: result.name,
-    url: result.url,
-    bucket: config.oss.bucket,
-  };
+  return buildUploadedObject(result.name);
+}
+
+/**
+ * Uploads a request stream to Aliyun OSS with a validated object key.
+ */
+export async function uploadStream(input: {
+  clientId: string;
+  objectKey?: string;
+  randomFilename?: boolean;
+  stream: Readable;
+  fileName?: string;
+  mimeType?: string;
+  contentLength?: number;
+}): Promise<UploadedObject> {
+  const objectKey = buildClientUploadObjectKey({
+    clientId: input.clientId,
+    objectKey: input.objectKey ?? getOriginalFilename(input.fileName),
+    randomFilename: input.randomFilename ?? false,
+  });
+  const options = {} as NonNullable<Parameters<typeof client.putStream>[2]>;
+
+  if (input.contentLength !== undefined) {
+    options.contentLength = input.contentLength;
+  }
+
+  if (input.mimeType) {
+    options.mime = input.mimeType;
+  }
+
+  const result = await client.putStream(objectKey, input.stream, options);
+
+  return buildUploadedObject(result.name);
 }
 
 /**
@@ -125,6 +154,14 @@ function getOriginalFilename(originalFilename?: string | null): string {
   const normalized = originalFilename?.trim().replaceAll("\\", "/") ?? "";
   const filename = normalized.split("/").filter(Boolean).at(-1);
   return filename || "file";
+}
+
+function buildUploadedObject(objectKey: string): UploadedObject {
+  return {
+    objectKey,
+    url: client.generateObjectUrl(objectKey),
+    bucket: config.oss.bucket,
+  };
 }
 
 function validateObjectKeyLength(objectKey: string): string {

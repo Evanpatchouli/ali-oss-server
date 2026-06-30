@@ -48,6 +48,25 @@ export function readRequiredHeader(ctx: Context, headerName: string): string {
   return value;
 }
 
+/**
+ * Reads an optional string request header.
+ */
+export function readOptionalHeader(ctx: Context, headerName: string): string | undefined {
+  return normalizeString(ctx.get(headerName));
+}
+
+/**
+ * Reads an optional boolean request header.
+ */
+export function readOptionalBooleanHeader(ctx: Context, headerName: string): boolean | undefined {
+  const value = readOptionalHeader(ctx, headerName);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return parseBooleanValue(value, headerName);
+}
+
 export function readOptionalStringField(source: Record<string, unknown>, fieldName: string): string | undefined {
   const rawValue = source[fieldName];
   if (rawValue === undefined || rawValue === null) {

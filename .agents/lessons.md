@@ -4,10 +4,13 @@
 
 - `koa-body` 开启 `multipart: true` 后，文件信息在 `ctx.request.files`。
 - ali-oss 本地文件上传按官方文档使用 `client.put(objectKey, localFilePath, options)`。
+- ali-oss 流式上传可用 `client.putStream(objectKey, stream, options)`，适合直接消费原始请求体。
 - ali-oss 删除单个对象按官方文档使用 `client.delete(objectKey)`。
 - `objectKey` 不应包含 Bucket 名，只包含对象路径。
 - 多调用方隔离时，服务层应统一拼接 `clientId/objectKey`，不要信任调用方自己传完整隔离目录。
 - `@koa/router` 的 `RouterContext` 会把 `ctx.request` 收窄，可能导致 VS Code 不能识别 `koa-body` 增强的 `request.files`；可以用一个小函数显式把 `ctx.request` 收口为带 `files` 的请求类型。
+- `koa-body` 的全局解析会消耗 `application/json`、`application/x-www-form-urlencoded` 和 `multipart/form-data` 请求体；如果某个接口要直接读取 `ctx.req`，就应该限制它只接受原始流式内容类型。
+- `@types/ali-oss` 中 `putStream` 的 `mime` 类型声明偏严格，实际调用可按需传入并在本地做窄范围类型兼容。
 
 ## pnpm 与 tsx
 

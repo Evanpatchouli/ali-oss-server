@@ -13,10 +13,13 @@
 ## OSS 对象操作
 
 - 上传接口使用 `client.put(objectKey, localFilePath, options)`。
+- 流式上传接口使用 `client.putStream(objectKey, requestStream, options)`，避免依赖服务器临时文件路径。
 - 删除接口使用 `client.delete(objectKey)`。
 - 服务层统一校验 `objectKey`，禁止空路径、相对路径片段和控制字符。
 - OSS 对象路径按调用方隔离：上传和删除都会使用当前 TOKEN 中的 `clientId` 作为目录前缀，支持 `clientId/objectKey` 路径式结构。
 - 上传接口的 `randomFilename=true` 只重写最后一级文件名，保留调用方提供的目录和原文件扩展名。
+- 流式上传只接受原始请求体，不接受 `multipart/form-data`、`application/json`、`application/x-www-form-urlencoded`，避免被全局 body parser 消耗。
+- 流式上传在进入 OSS SDK 前先校验 `Content-Length`，并用服务端计数流兜底限制上传体积。
 
 ## 生产构建与容器化
 

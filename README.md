@@ -109,6 +109,27 @@ curl -X POST http://localhost:9512/api/oss/upload \
 
 `randomFilename=true` 时，服务会保留目录和扩展名，只把最后一级文件名改成随机字符串。例如 `uploads/file.png` 会上传到 `demo-client/uploads/<random>.png`。
 
+### 流式上传文件
+
+```bash
+curl -X POST http://localhost:9512/api/oss/upload-stream \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/octet-stream" \
+  -H "x-file-name: file.png" \
+  -H "x-object-key: uploads/file.png" \
+  -H "x-random-filename: false" \
+  --data-binary "@/path/to/file.png"
+```
+
+这个接口直接读取原始请求体并流式上传到 OSS，不走服务器临时文件路径。
+
+- 请求体必须是原始二进制流，不能使用 `multipart/form-data`
+- 推荐设置 `Content-Type: application/octet-stream` 或真实文件 MIME
+- `x-file-name` 可选；未传 `x-object-key` 时，会用它推导文件名
+- `x-object-key` 可选；规则与 `/api/oss/upload` 一致
+- `x-random-filename` 可选；`true` 时保留目录和扩展名，只随机化最后一级文件名
+- 同样会自动在对象路径前追加当前 TOKEN 所属调用方的 `clientId` 目录
+
 ### 删除文件
 
 ```bash

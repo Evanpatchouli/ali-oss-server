@@ -1,13 +1,18 @@
 import { unlink } from "node:fs/promises";
+import { Transform } from "node:stream";
 
 import Router from "@koa/router";
+import type { Context } from "koa";
 import type { ScalarOrArrayFiles } from "koa-body";
 
+import { config } from "../config/env.js";
 import { authenticate } from "../middleware/authenticate.js";
-import { deleteObject, uploadLocalFile } from "../services/oss-service.js";
-import { badRequest, unauthorized } from "../utils/http-error.js";
+import { deleteObject, uploadLocalFile, uploadStream } from "../services/oss-service.js";
+import { badRequest, payloadTooLarge, unauthorized } from "../utils/http-error.js";
 import {
   readObjectBody,
+  readOptionalBooleanHeader,
+  readOptionalHeader,
   readOptionalBooleanField,
   readOptionalObjectBody,
   readOptionalStringField,
@@ -51,6 +56,31 @@ export function createOssRouter(): Router {
     } finally {
       await removeTempFile(file.filepath);
     }
+  });
+
+  router.post("/upload-stream", authenticate(), async (ctx) => {
+    assertSupportedStreamContentType(ctx);
+
+    const contentLength = readOptionalContentLength(ctx);
+    if (contentLength !== undefined && contentLength > config.oss.maxFileSizeBytes) {
+      throw createFileTooLargeError();
+    }
+
+    const uploaded = await uploadStream({
+      clientId: readAuthenticatedClientId(ctx),
+      objectKey: readOptionalHeader(ctx, "x-object-key"),
+      randomFilename: readOptionalBooleanHeader(ctx, "x-random-filename") ?? false,
+      stream: ctx.req.pipe(createSizeLimitedStream(config.oss.maxFileSizeBytes)),
+      fileName: readOptionalHeader(ctx, "x-file-name"),
+      mimeType: readRequestMimeType(ctx),
+      contentLength,
+    });
+
+    ctx.status = 201;
+    ctx.body = {
+      ...uploaded,
+      clientId: ctx.state.auth?.clientId,
+    };
   });
 
   router.delete("/object", authenticate(), async (ctx) => {
@@ -117,4 +147,66 @@ async function removeTempFile(filePath: string): Promise<void> {
   } catch {
     // Formidable temporary files are best-effort cleanup.
   }
+}
+
+function assertSupportedStreamContentType(ctx: Context): void {
+  const contentType = ctx.get("content-type").trim().toLowerCase();
+  if (
+    contentType.includes("multipart/form-data") ||
+    contentType.includes("application/json") ||
+    contentType.includes("application/x-www-form-urlencoded")
+  ) {
+    throw badRequest(
+      "INVALID_CONTENT_TYPE",
+      "upload-stream requires a raw request body such as application/octet-stream",
+    );
+  }
+}
+
+function readOptionalContentLength(ctx: Context): number | undefined {
+  const rawValue = readOptionalHeader(ctx, "content-length");
+  if (rawValue === undefined) {
+    return undefined;
+  }
+
+  if (!/^\d+$/u.test(rawValue)) {
+    throw badRequest("INVALID_HEADER", "content-length header must be a non-negative integer");
+  }
+
+  const value = Number.parseInt(rawValue, 10);
+  if (!Number.isSafeInteger(value)) {
+    throw badRequest("INVALID_HEADER", "content-length header is invalid");
+  }
+
+  return value;
+}
+
+function readRequestMimeType(ctx: Context): string | undefined {
+  const contentType = ctx.get("content-type").trim();
+  return contentType || undefined;
+}
+
+function createSizeLimitedStream(maxBytes: number): Transform {
+  let bytesRead = 0;
+
+  return new Transform({
+    transform(chunk, _encoding, callback) {
+      const chunkSize = Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk));
+      bytesRead += chunkSize;
+
+      if (bytesRead > maxBytes) {
+        callback(createFileTooLargeError());
+        return;
+      }
+
+      callback(null, chunk);
+    },
+  });
+}
+
+function createFileTooLargeError() {
+  return payloadTooLarge(
+    "FILE_TOO_LARGE",
+    `file size must be no more than ${config.oss.maxFileSizeBytes / 1024 / 1024} MB`,
+  );
 }
