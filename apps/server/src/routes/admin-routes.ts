@@ -1,0 +1,145 @@
+import Router from "@koa/router";
+
+import { authenticateAdmin } from "../middleware/authenticate-admin.js";
+import { getAllowedIps, isIpAllowlistEnabled, replaceAllowedIps } from "../services/ip-allowlist-service.js";
+import {
+  getRateLimitSettings,
+  replaceRateLimitSettings,
+  type RateLimitRule,
+  type RouteRateLimitRule,
+} from "../services/rate-limit-service.js";
+import { authenticateAdminUser } from "../services/admin-auth-service.js";
+import { badRequest } from "../utils/http-error.js";
+import { readObjectBody, readRequiredStringField } from "../utils/request.js";
+import { signAdminAccessToken } from "../utils/token.js";
+
+/**
+ * Creates routes for admin login and in-memory policy management.
+ */
+export function createAdminRouter(): Router {
+  const router = new Router({ prefix: "/api/admin" });
+
+  router.post("/auth/login", (ctx) => {
+    const body = readObjectBody(ctx);
+    const username = readRequiredStringField(body, "username");
+    const password = readRequiredStringField(body, "password");
+    const admin = authenticateAdminUser(username, password);
+    const token = signAdminAccessToken(admin.username);
+
+    ctx.body = {
+      tokenType: "Bearer",
+      accessToken: token.token,
+      expiresIn: token.expiresIn,
+      expiresAt: token.expiresAt,
+      username: admin.username,
+    };
+  });
+
+  router.get("/ip-allowlist", authenticateAdmin(), (ctx) => {
+    const ips = getAllowedIps();
+    ctx.body = {
+      ips,
+      enabled: isIpAllowlistEnabled(),
+    };
+  });
+
+  router.put("/ip-allowlist", authenticateAdmin(), (ctx) => {
+    const body = readObjectBody(ctx);
+    const ips = readStringArray(body.ips, "ips");
+    const nextIps = replaceAllowedIps(ips);
+
+    ctx.body = {
+      ips: nextIps,
+      enabled: nextIps.length > 0,
+    };
+  });
+
+  router.get("/rate-limit", authenticateAdmin(), (ctx) => {
+    ctx.body = getRateLimitSettings();
+  });
+
+  router.put("/rate-limit", authenticateAdmin(), (ctx) => {
+    const body = readObjectBody(ctx);
+    const nextSettings = replaceRateLimitSettings({
+      globalRule: readOptionalRateLimitRule(body.globalRule, "globalRule"),
+      routeRules: readRouteRules(body.routeRules),
+    });
+
+    ctx.body = nextSettings;
+  });
+
+  return router;
+}
+
+function readStringArray(value: unknown, fieldName: string): string[] {
+  if (!Array.isArray(value)) {
+    throw badRequest("INVALID_FIELD", `${fieldName} must be an array of strings`);
+  }
+
+  return value.map((item, index) => {
+    if (typeof item !== "string") {
+      throw badRequest("INVALID_FIELD", `${fieldName}[${index}] must be a string`);
+    }
+
+    const normalized = item.trim();
+    if (!normalized) {
+      throw badRequest("INVALID_FIELD", `${fieldName}[${index}] must not be empty`);
+    }
+
+    return normalized;
+  });
+}
+
+function readOptionalRateLimitRule(value: unknown, fieldName: string): RateLimitRule | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    throw badRequest("INVALID_FIELD", `${fieldName} must be an object or null`);
+  }
+
+  return {
+    windowMs: readPositiveInteger(value.windowMs, `${fieldName}.windowMs`),
+    maxRequests: readPositiveInteger(value.maxRequests, `${fieldName}.maxRequests`),
+  };
+}
+
+function readRouteRules(value: unknown): RouteRateLimitRule[] {
+  if (!Array.isArray(value)) {
+    throw badRequest("INVALID_FIELD", "routeRules must be an array");
+  }
+
+  return value.map((item, index) => {
+    if (!isRecord(item)) {
+      throw badRequest("INVALID_FIELD", `routeRules[${index}] must be an object`);
+    }
+
+    return {
+      method: readNonEmptyString(item.method, `routeRules[${index}].method`),
+      path: readNonEmptyString(item.path, `routeRules[${index}].path`),
+      windowMs: readPositiveInteger(item.windowMs, `routeRules[${index}].windowMs`),
+      maxRequests: readPositiveInteger(item.maxRequests, `routeRules[${index}].maxRequests`),
+    };
+  });
+}
+
+function readPositiveInteger(value: unknown, fieldName: string): number {
+  if (!Number.isInteger(value) || typeof value !== "number" || value <= 0) {
+    throw badRequest("INVALID_FIELD", `${fieldName} must be a positive integer`);
+  }
+
+  return value;
+}
+
+function readNonEmptyString(value: unknown, fieldName: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw badRequest("INVALID_FIELD", `${fieldName} must be a non-empty string`);
+  }
+
+  return value.trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}

@@ -3,3 +3,4 @@ dist
 .env
 .git
 .agents
+apps/*/dist

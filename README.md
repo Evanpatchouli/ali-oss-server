@@ -1,13 +1,31 @@
 # ali-oss-server
 
-基于 Koa、TypeScript、dotenv 和 ali-oss 的 OSS 文件服务。
+基于 Koa、TypeScript、ali-oss 的 OSS 文件服务，现已调整为 monorepo，并新增 React + MUI 管理端。
+
+## 目录
+
+```text
+apps/
+  admin/   Vite 8 + React 19 + MUI 管理端
+  server/  Koa + TypeScript OSS 服务
+```
+
+## 功能
+
+- 调用方签名换取业务 Bearer Token
+- OSS 文件上传、流式上传、删除
+- 管理员账号密码登录管理端
+- 动态 IP 限制
+- 全局接口限流
+- 接口级限流
+- 后端生产环境托管管理端静态资源，访问地址为 `/admin`
 
 ## 启动
 
+安装依赖：
+
 ```bash
 pnpm install
-pnpm build
-pnpm start
 ```
 
 开发模式：
@@ -16,12 +34,21 @@ pnpm start
 pnpm dev
 ```
 
+- 后端默认运行在 `http://localhost:9512`
+- 管理端 Vite 开发服务器默认运行在 `http://localhost:5173`
+- Vite 已代理 `/api` 和 `/health` 到后端
+
 生产构建：
 
 ```bash
 pnpm build
 pnpm start
 ```
+
+生产模式下由后端托管管理端静态资源：
+
+- 业务接口：`http://localhost:9512/api/...`
+- 管理端：`http://localhost:9512/admin`
 
 类型检查：
 
@@ -39,14 +66,16 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 
 ## 环境变量
 
-复制 `.env.example` 为 `.env` 后填写真实 OSS 配置。
+复制 `.env.example` 为 `.env` 后填写真实配置。
 
 | 变量 | 说明 |
 | --- | --- |
 | `PORT` | 服务端口，默认示例为 `9512` |
 | `AUTH_CLIENTS` | 调用方凭证数组，JSON 格式 |
-| `TOKEN_SECRET` | TOKEN HMAC 签名密钥，至少 16 个字符 |
-| `TOKEN_EXPIRES_IN_SECONDS` | TOKEN 有效期，单位秒 |
+| `TOKEN_SECRET` | Bearer Token HMAC 签名密钥，至少 16 个字符 |
+| `TOKEN_EXPIRES_IN_SECONDS` | 业务 Token 与管理端 Token 的有效期，单位秒 |
+| `ADMIN_USERNAME` | 管理端登录账号 |
+| `ADMIN_PASSWORD` | 管理端登录密码 |
 | `OSS_REGION` | Bucket 所在地域，例如 `oss-cn-hangzhou` |
 | `OSS_BUCKET_NAME` | Bucket 名称 |
 | `OSS_ACCESS_KEY_ID` | 阿里云 AccessKey ID |
@@ -60,6 +89,31 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId":"partner-a","clientSecret":"partner-a-secret"}]
 ```
 
+## 管理端
+
+### 登录
+
+- 生产访问地址：`/admin`
+- 使用 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 登录
+- 登录后可管理动态 IP 限制和接口限流
+
+### 动态 IP 限制
+
+- 使用内存级 `allowlist`
+- 列表为空时，不限制访问 IP
+- 列表非空时，仅允许列表中的 IP 访问服务
+- 重启服务后，配置会恢复默认状态
+
+### 接口限流
+
+- 使用内存级限流配置
+- 支持全局限流：`windowMs` + `maxRequests`
+- 支持接口级限流：按 `HTTP 方法 + 路径` 精确匹配
+- 全局限流和接口级限流可以同时生效，任一规则触发都会返回 `429`
+- 如果全局和接口级都未设置，则不限流
+- 当前限流按来源 IP 计数
+- 重启服务后，配置会恢复默认状态
+
 ## 接口
 
 ### 健康检查
@@ -68,7 +122,7 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 curl http://localhost:9512/health
 ```
 
-### 获取 TOKEN
+### 获取业务 TOKEN
 
 `sign` 生成规则：
 
@@ -91,7 +145,73 @@ curl -X POST http://localhost:9512/api/auth/token \
 
 响应中的 `accessToken` 用于访问上传和删除接口。
 
-### 上传文件
+### 管理员登录
+
+```bash
+curl -X POST http://localhost:9512/api/admin/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"<password>"}'
+```
+
+响应中的 `accessToken` 用于访问管理端配置接口。
+
+### 查询动态 IP 限制
+
+```bash
+curl http://localhost:9512/api/admin/ip-allowlist \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+### 更新动态 IP 限制
+
+```bash
+curl -X PUT http://localhost:9512/api/admin/ip-allowlist \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"ips":["127.0.0.1","::1"]}'
+```
+
+传空数组可关闭 IP 限制：
+
+```bash
+curl -X PUT http://localhost:9512/api/admin/ip-allowlist \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"ips":[]}'
+```
+
+### 查询限流配置
+
+```bash
+curl http://localhost:9512/api/admin/rate-limit \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+### 更新限流配置
+
+```bash
+curl -X PUT http://localhost:9512/api/admin/rate-limit \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "globalRule": { "windowMs": 60000, "maxRequests": 120 },
+    "routeRules": [
+      { "method": "POST", "path": "/api/oss/upload", "windowMs": 60000, "maxRequests": 20 },
+      { "method": "POST", "path": "/api/oss/upload-stream", "windowMs": 60000, "maxRequests": 10 }
+    ]
+  }'
+```
+
+关闭全局限流并清空接口级限流：
+
+```bash
+curl -X PUT http://localhost:9512/api/admin/rate-limit \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{ "globalRule": null, "routeRules": [] }'
+```
+
+### multipart 上传文件
 
 ```bash
 curl -X POST http://localhost:9512/api/oss/upload \

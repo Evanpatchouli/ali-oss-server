@@ -5,6 +5,7 @@ import { unauthorized } from "./http-error.js";
 
 type AccessTokenPayload = {
   iss: "ali-oss-server";
+  kind: "client" | "admin";
   sub: string;
   iat: number;
   exp: number;
@@ -13,6 +14,12 @@ type AccessTokenPayload = {
 
 export type VerifiedAccessToken = {
   clientId: string;
+  expiresAt: string;
+  tokenId: string;
+};
+
+export type VerifiedAdminAccessToken = {
+  username: string;
   expiresAt: string;
   tokenId: string;
 };
@@ -31,11 +38,31 @@ export function signAccessToken(clientId: string): {
   expiresIn: number;
   expiresAt: string;
 } {
+  return signToken("client", clientId);
+}
+
+/**
+ * Signs a short-lived bearer token for the admin panel.
+ */
+export function signAdminAccessToken(username: string): {
+  token: string;
+  expiresIn: number;
+  expiresAt: string;
+} {
+  return signToken("admin", username);
+}
+
+function signToken(kind: AccessTokenPayload["kind"], subject: string): {
+  token: string;
+  expiresIn: number;
+  expiresAt: string;
+} {
   const issuedAt = currentUnixSeconds();
   const expiresAt = issuedAt + config.auth.tokenExpiresInSeconds;
   const payload: AccessTokenPayload = {
     iss: TOKEN_ISSUER,
-    sub: clientId,
+    kind,
+    sub: subject,
     iat: issuedAt,
     exp: expiresAt,
     jti: randomUUID(),
@@ -56,6 +83,29 @@ export function signAccessToken(clientId: string): {
  * Verifies a bearer token and returns the caller identity embedded in it.
  */
 export function verifyAccessToken(token: string): VerifiedAccessToken {
+  const payload = verifyToken(token, "client");
+
+  return {
+    clientId: payload.sub,
+    expiresAt: new Date(payload.exp * 1000).toISOString(),
+    tokenId: payload.jti,
+  };
+}
+
+/**
+ * Verifies an admin bearer token and returns the admin identity embedded in it.
+ */
+export function verifyAdminAccessToken(token: string): VerifiedAdminAccessToken {
+  const payload = verifyToken(token, "admin");
+
+  return {
+    username: payload.sub,
+    expiresAt: new Date(payload.exp * 1000).toISOString(),
+    tokenId: payload.jti,
+  };
+}
+
+function verifyToken(token: string, expectedKind: AccessTokenPayload["kind"]): AccessTokenPayload {
   const parts = token.split(".");
   if (parts.length !== 3) {
     throw unauthorized("TOKEN_INVALID", "Invalid token");
@@ -68,7 +118,7 @@ export function verifyAccessToken(token: string): VerifiedAccessToken {
   }
 
   const payload = parseTokenPayload(encodedPayload);
-  if (payload.iss !== TOKEN_ISSUER || !payload.sub || !payload.jti) {
+  if (payload.iss !== TOKEN_ISSUER || payload.kind !== expectedKind || !payload.sub || !payload.jti) {
     throw unauthorized("TOKEN_INVALID", "Invalid token");
   }
 
@@ -76,11 +126,7 @@ export function verifyAccessToken(token: string): VerifiedAccessToken {
     throw unauthorized("TOKEN_EXPIRED", "Token expired");
   }
 
-  return {
-    clientId: payload.sub,
-    expiresAt: new Date(payload.exp * 1000).toISOString(),
-    tokenId: payload.jti,
-  };
+  return payload;
 }
 
 function sign(value: string): string {
@@ -112,6 +158,7 @@ function isTokenPayload(value: unknown): value is AccessTokenPayload {
   const payload = value as Partial<AccessTokenPayload>;
   return (
     payload.iss === TOKEN_ISSUER &&
+    (payload.kind === "client" || payload.kind === "admin") &&
     typeof payload.sub === "string" &&
     typeof payload.iat === "number" &&
     typeof payload.exp === "number" &&

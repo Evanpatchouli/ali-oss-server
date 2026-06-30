@@ -1,8 +1,9 @@
 import dotenv from "dotenv";
 
 import { badRequest } from "../utils/http-error.js";
+import { workspaceEnvFilePath } from "../utils/paths.js";
 
-dotenv.config();
+dotenv.config({ path: workspaceEnvFilePath });
 
 export type AuthClient = {
   clientId: string;
@@ -15,6 +16,10 @@ type AppConfig = {
     clients: AuthClient[];
     tokenSecret: string;
     tokenExpiresInSeconds: number;
+  };
+  admin: {
+    username: string;
+    password: string;
   };
   oss: {
     region: string;
@@ -121,6 +126,10 @@ export const config: AppConfig = {
     clients: parseAuthClients(requiredEnv("AUTH_CLIENTS")),
     tokenSecret,
     tokenExpiresInSeconds: parsePositiveInt("TOKEN_EXPIRES_IN_SECONDS", 7200),
+  },
+  admin: {
+    username: requiredEnv("ADMIN_USERNAME"),
+    password: requiredEnv("ADMIN_PASSWORD"),
   },
   oss: {
     region: requiredEnv("OSS_REGION"),

@@ -11,9 +11,12 @@
 - `@koa/router` 的 `RouterContext` 会把 `ctx.request` 收窄，可能导致 VS Code 不能识别 `koa-body` 增强的 `request.files`；可以用一个小函数显式把 `ctx.request` 收口为带 `files` 的请求类型。
 - `koa-body` 的全局解析会消耗 `application/json`、`application/x-www-form-urlencoded` 和 `multipart/form-data` 请求体；如果某个接口要直接读取 `ctx.req`，就应该限制它只接受原始流式内容类型。
 - `@types/ali-oss` 中 `putStream` 的 `mime` 类型声明偏严格，实际调用可按需传入并在本地做窄范围类型兼容。
+- monorepo 下若服务端包不在仓库根目录，`dotenv.config()` 需要显式指定根级 `.env` 路径，否则会默认读取包目录下的 `.env`。
+- MUI 9 的 `Stack` 类型对系统属性收口更严格，`justifyContent`、`alignItems`、`flexWrap` 等布局值应通过 `sx` 传入更稳妥。
 
 ## pnpm 与 tsx
 
 - 安装 `tsx` 后，pnpm 可能提示 `esbuild` 构建脚本被忽略；本项目实际运行 `pnpm start` 与 `pnpm typecheck` 均正常。
 - pnpm 11 的构建脚本审批配置应写在 `pnpm-workspace.yaml` 的 `allowBuilds` 中，例如 `esbuild: true`；`package.json` 中旧的 `pnpm.onlyBuiltDependencies` 不再生效。
 - TypeScript 6 在启用 `outDir` 构建时可能要求显式声明 `rootDir`，本项目应固定为 `src`，确保输出到 `dist` 的目录布局稳定。
+- pnpm workspace 根脚本适合串联 `pnpm --filter <pkg> build` 与 `typecheck`，便于控制多包构建顺序。

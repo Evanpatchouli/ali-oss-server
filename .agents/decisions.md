@@ -21,6 +21,19 @@
 - 流式上传只接受原始请求体，不接受 `multipart/form-data`、`application/json`、`application/x-www-form-urlencoded`，避免被全局 body parser 消耗。
 - 流式上传在进入 OSS SDK 前先校验 `Content-Length`，并用服务端计数流兜底限制上传体积。
 
+## monorepo 与管理端
+
+- 项目按 `apps/server` 和 `apps/admin` 拆分为 pnpm workspace。
+- 生产环境由后端托管 `apps/admin/dist`，管理端访问路径固定为 `/admin`。
+- 管理员鉴权使用 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD`，登录后签发独立的 admin token。
+
+## 动态 IP 限制与限流
+
+- 动态 IP 限制使用内存级 allowlist；列表为空时完全关闭 IP 限制。
+- 接口限流使用内存级配置，按来源 IP 计数。
+- 全局限流和接口级限流支持同时生效，只要任一规则触发就返回 `429`。
+- 接口级限流按 `HTTP 方法 + 路径` 精确匹配，不做通配符和前缀规则。
+
 ## 生产构建与容器化
 
 - 生产运行统一使用 `pnpm build` 编译到 `dist`，再通过 `node dist/index.js` 启动。
