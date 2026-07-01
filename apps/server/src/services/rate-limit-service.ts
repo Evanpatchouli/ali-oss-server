@@ -48,7 +48,9 @@ export function getRateLimitSettings(): RateLimitSettings {
     globalRule: globalRule ? { ...globalRule } : null,
     routeRules: [...routeRuleMap.values()].sort((left, right) => {
       const methodComparison = left.method.localeCompare(right.method);
-      return methodComparison !== 0 ? methodComparison : left.path.localeCompare(right.path);
+      return methodComparison !== 0
+        ? methodComparison
+        : left.path.localeCompare(right.path);
     }),
     knownRoutes: [...knownRateLimitRoutes],
   };
@@ -58,12 +60,17 @@ export function replaceRateLimitSettings(input: {
   globalRule: RateLimitRule | null;
   routeRules: RouteRateLimitRule[];
 }): RateLimitSettings {
-  globalRule = input.globalRule ? normalizeRule(input.globalRule, "globalRule") : null;
+  globalRule = input.globalRule
+    ? normalizeRule(input.globalRule, "globalRule")
+    : null;
 
   const nextRouteRules = new Map<string, RouteRateLimitRule>();
   for (const routeRule of input.routeRules) {
     const normalizedRouteRule = normalizeRouteRule(routeRule);
-    nextRouteRules.set(buildRouteRuleKey(normalizedRouteRule.method, normalizedRouteRule.path), normalizedRouteRule);
+    nextRouteRules.set(
+      buildRouteRuleKey(normalizedRouteRule.method, normalizedRouteRule.path),
+      normalizedRouteRule
+    );
   }
 
   routeRuleMap = nextRouteRules;
@@ -90,9 +97,14 @@ export function checkRateLimit(input: {
     applicableRules.push({ scope: "global", rule: globalRule });
   }
 
-  const routeRule = routeRuleMap.get(buildRouteRuleKey(normalizedMethod, input.path));
+  const routeRule = routeRuleMap.get(
+    buildRouteRuleKey(normalizedMethod, input.path)
+  );
   if (routeRule) {
-    applicableRules.push({ scope: `route:${normalizedMethod} ${input.path}`, rule: routeRule });
+    applicableRules.push({
+      scope: `route:${normalizedMethod} ${input.path}`,
+      rule: routeRule,
+    });
   }
 
   for (const { scope, rule } of applicableRules) {
@@ -128,7 +140,10 @@ function incrementCounter(input: {
   if (counter.count > input.rule.maxRequests) {
     return {
       allowed: false,
-      retryAfterMs: Math.max(1, windowStartedAt + input.rule.windowMs - input.now),
+      retryAfterMs: Math.max(
+        1,
+        windowStartedAt + input.rule.windowMs - input.now
+      ),
     };
   }
 
@@ -154,13 +169,19 @@ function normalizeRouteRule(routeRule: RouteRateLimitRule): RouteRateLimitRule {
 function normalizeRule(rule: RateLimitRule, label: string): RateLimitRule {
   return {
     windowMs: normalizePositiveInteger(rule.windowMs, `${label}.windowMs`),
-    maxRequests: normalizePositiveInteger(rule.maxRequests, `${label}.maxRequests`),
+    maxRequests: normalizePositiveInteger(
+      rule.maxRequests,
+      `${label}.maxRequests`
+    ),
   };
 }
 
 function normalizePositiveInteger(value: number, fieldName: string): number {
   if (!Number.isInteger(value) || value <= 0) {
-    throw badRequest("INVALID_RATE_LIMIT", `${fieldName} must be a positive integer`);
+    throw badRequest(
+      "INVALID_RATE_LIMIT",
+      `${fieldName} must be a positive integer`
+    );
   }
 
   return value;

@@ -13,10 +13,16 @@ import { LoginScreen } from "../../components/LoginScreen";
 import { RateLimitPanel } from "../../components/RateLimitPanel";
 import type { IpAllowlistResponse, RateLimitResponse } from "../../types/api";
 import type { EditableRouteRule, Session } from "../../types/admin";
-import { clearStoredSession, readStoredSession, storeSession } from "../../utils/session";
+import {
+  clearStoredSession,
+  readStoredSession,
+  storeSession,
+} from "../../utils/session";
 
 export function AdminConsole() {
-  const [session, setSession] = useState<Session | null>(() => readStoredSession());
+  const [session, setSession] = useState<Session | null>(() =>
+    readStoredSession()
+  );
   const [tab, setTab] = useState(0);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -26,12 +32,17 @@ export function AdminConsole() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [ipDraft, setIpDraft] = useState("");
-  const [ipStatus, setIpStatus] = useState<IpAllowlistResponse>({ ips: [], enabled: false });
+  const [ipStatus, setIpStatus] = useState<IpAllowlistResponse>({
+    ips: [],
+    enabled: false,
+  });
   const [globalEnabled, setGlobalEnabled] = useState(false);
   const [globalWindowMs, setGlobalWindowMs] = useState("60000");
   const [globalMaxRequests, setGlobalMaxRequests] = useState("120");
   const [routeRules, setRouteRules] = useState<EditableRouteRule[]>([]);
-  const [knownRoutes, setKnownRoutes] = useState<Array<{ method: string; path: string }>>([]);
+  const [knownRoutes, setKnownRoutes] = useState<
+    Array<{ method: string; path: string }>
+  >([]);
   const [routePreset, setRoutePreset] = useState("");
 
   useEffect(() => {
@@ -43,8 +54,12 @@ export function AdminConsole() {
   }, [session]);
 
   const activeIpCount = useMemo(
-    () => ipDraft.split(/\r?\n/u).map((item) => item.trim()).filter(Boolean).length,
-    [ipDraft],
+    () =>
+      ipDraft
+        .split(/\r?\n/u)
+        .map((item) => item.trim())
+        .filter(Boolean).length,
+    [ipDraft]
   );
 
   async function refreshDashboard(token: string) {
@@ -52,7 +67,10 @@ export function AdminConsole() {
     setErrorMessage(null);
 
     try {
-      const [ipResponse, rateLimitResponse] = await Promise.all([fetchIpAllowlist(token), fetchRateLimit(token)]);
+      const [ipResponse, rateLimitResponse] = await Promise.all([
+        fetchIpAllowlist(token),
+        fetchRateLimit(token),
+      ]);
       applyIpState(ipResponse);
       applyRateLimitState(rateLimitResponse);
     } catch (error) {
@@ -176,8 +194,13 @@ export function AdminConsole() {
     ]);
   }
 
-  function handleRouteRuleChange(id: string, patch: Partial<EditableRouteRule>) {
-    setRouteRules((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  function handleRouteRuleChange(
+    id: string,
+    patch: Partial<EditableRouteRule>
+  ) {
+    setRouteRules((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
   }
 
   function handleRemoveRouteRule(id: string) {
@@ -208,7 +231,7 @@ export function AdminConsole() {
       response.routeRules.map((rule) => ({
         ...rule,
         id: crypto.randomUUID(),
-      })),
+      }))
     );
   }
 

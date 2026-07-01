@@ -70,7 +70,12 @@ type SdkErrorOptions = {
 
 const DEFAULT_TOKEN_REFRESH_BUFFER_MS = 60_000;
 const DEFAULT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-const IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const IMAGE_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 
 export class AliOssServerSdkError extends Error {
   readonly status?: number;
@@ -106,16 +111,22 @@ export class AliOssServerSdk {
   constructor(options: AliOssServerSdkOptions) {
     this.baseUrl = normalizeRequiredUrl(options.serverBaseUrl, "serverBaseUrl");
     this.clientId = normalizeRequiredString(options.clientId, "clientId");
-    this.clientSecret = normalizeRequiredString(options.clientSecret, "clientSecret");
+    this.clientSecret = normalizeRequiredString(
+      options.clientSecret,
+      "clientSecret"
+    );
     this.objectPrefix = normalizePrefix(options.objectPrefix ?? "uploads");
     this.imageMaxBytes = options.imageMaxBytes ?? DEFAULT_IMAGE_MAX_BYTES;
-    this.tokenRefreshBufferMs = options.tokenRefreshBufferMs ?? DEFAULT_TOKEN_REFRESH_BUFFER_MS;
+    this.tokenRefreshBufferMs =
+      options.tokenRefreshBufferMs ?? DEFAULT_TOKEN_REFRESH_BUFFER_MS;
     this.tokenRefreshIntervalMs = options.tokenRefreshIntervalMs ?? 0;
     this.onTokenRefreshError = options.onTokenRefreshError;
     this.fetchFn = options.fetch ?? globalThis.fetch;
 
     if (!this.fetchFn) {
-      throw new AliOssServerSdkError("fetch is not available in this Node runtime");
+      throw new AliOssServerSdkError(
+        "fetch is not available in this Node runtime"
+      );
     }
   }
 
@@ -134,7 +145,9 @@ export class AliOssServerSdk {
       });
     }, intervalMs);
 
-    const timer = this.refreshTimer as ReturnType<typeof setInterval> & { unref?: () => void };
+    const timer = this.refreshTimer as ReturnType<typeof setInterval> & {
+      unref?: () => void;
+    };
     timer.unref?.();
   }
 
@@ -168,14 +181,19 @@ export class AliOssServerSdk {
   }
 
   async uploadImage(input: UploadImageInput): Promise<AliOssUploadResult> {
-    validateImage(input.buffer, input.mimeType, input.maxBytes ?? this.imageMaxBytes);
+    validateImage(
+      input.buffer,
+      input.mimeType,
+      input.maxBytes ?? this.imageMaxBytes
+    );
 
     const fileName = input.originalName?.trim() || "image";
     return this.uploadBuffer({
       buffer: input.buffer,
       fileName,
       mimeType: input.mimeType,
-      objectKey: input.objectKey ?? this.buildObjectKey(fileName, input.objectPrefix),
+      objectKey:
+        input.objectKey ?? this.buildObjectKey(fileName, input.objectPrefix),
     });
   }
 
@@ -185,7 +203,11 @@ export class AliOssServerSdk {
     const fileName = input.fileName?.trim() || "file";
     const mimeType = input.mimeType?.trim() || "application/octet-stream";
     const formData = new FormData();
-    formData.append("file", new Blob([toArrayBuffer(input.buffer)], { type: mimeType }), fileName);
+    formData.append(
+      "file",
+      new Blob([toArrayBuffer(input.buffer)], { type: mimeType }),
+      fileName
+    );
 
     if (input.objectKey) {
       formData.append("objectKey", input.objectKey);
@@ -195,13 +217,16 @@ export class AliOssServerSdk {
       formData.append("randomFilename", String(input.randomFilename));
     }
 
-    const body = await this.requestJson<Partial<AliOssUploadResult>>("/api/oss/upload", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-      body: formData,
-    });
+    const body = await this.requestJson<Partial<AliOssUploadResult>>(
+      "/api/oss/upload",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+        body: formData,
+      }
+    );
 
     return readUploadResult(body);
   }
@@ -236,7 +261,10 @@ export class AliOssServerSdk {
       body: input.stream as unknown as RequestInit["body"],
       duplex: "half",
     };
-    const body = await this.requestJson<Partial<AliOssUploadResult>>("/api/oss/upload-stream", init);
+    const body = await this.requestJson<Partial<AliOssUploadResult>>(
+      "/api/oss/upload-stream",
+      init
+    );
 
     return readUploadResult(body);
   }
@@ -244,17 +272,22 @@ export class AliOssServerSdk {
   async deleteObject(objectKey: string): Promise<AliOssDeleteResult> {
     await this.ensureToken();
 
-    const body = await this.requestJson<Partial<AliOssDeleteResult>>("/api/oss/object", {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ objectKey }),
-    });
+    const body = await this.requestJson<Partial<AliOssDeleteResult>>(
+      "/api/oss/object",
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ objectKey }),
+      }
+    );
 
     if (!body.objectKey || body.deleted !== true) {
-      throw new AliOssServerSdkError("OSS object delete response is invalid", { responseBody: body });
+      throw new AliOssServerSdkError("OSS object delete response is invalid", {
+        responseBody: body,
+      });
     }
 
     return {
@@ -271,7 +304,10 @@ export class AliOssServerSdk {
   }
 
   private hasFreshToken(): boolean {
-    return Boolean(this.accessToken && this.expiresAtMs - Date.now() > this.tokenRefreshBufferMs);
+    return Boolean(
+      this.accessToken &&
+      this.expiresAtMs - Date.now() > this.tokenRefreshBufferMs
+    );
   }
 
   private currentToken(): AliOssTokenResult {
@@ -285,28 +321,39 @@ export class AliOssServerSdk {
   }
 
   private async requestToken(): Promise<AliOssTokenResult> {
-    const sign = createHmac("sha256", this.clientSecret).update(this.clientId).digest("base64url");
-    const body = await this.requestJson<Partial<AliOssTokenResult>>("/api/auth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-client-id": this.clientId,
-      },
-      body: JSON.stringify({ sign }),
-    });
+    const sign = createHmac("sha256", this.clientSecret)
+      .update(this.clientId)
+      .digest("base64url");
+    const body = await this.requestJson<Partial<AliOssTokenResult>>(
+      "/api/auth/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": this.clientId,
+        },
+        body: JSON.stringify({ sign }),
+      }
+    );
 
     if (!body.accessToken || !body.expiresAt || !body.clientId) {
-      throw new AliOssServerSdkError("OSS token response is invalid", { responseBody: body });
+      throw new AliOssServerSdkError("OSS token response is invalid", {
+        responseBody: body,
+      });
     }
 
     const expiresAtMs = new Date(body.expiresAt).getTime();
     if (!Number.isFinite(expiresAtMs)) {
-      throw new AliOssServerSdkError("OSS token expiresAt is invalid", { responseBody: body });
+      throw new AliOssServerSdkError("OSS token expiresAt is invalid", {
+        responseBody: body,
+      });
     }
 
     this.accessToken = body.accessToken;
     this.expiresAtMs = expiresAtMs;
-    this.expiresIn = body.expiresIn ?? Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
+    this.expiresIn =
+      body.expiresIn ??
+      Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000));
 
     return this.currentToken();
   }
@@ -316,11 +363,14 @@ export class AliOssServerSdk {
     const body = (await response.json().catch(() => null)) as T | null;
 
     if (!response.ok) {
-      throw new AliOssServerSdkError(readResponseMessage(body, response.statusText), {
-        status: response.status,
-        code: readResponseCode(body),
-        responseBody: body,
-      });
+      throw new AliOssServerSdkError(
+        readResponseMessage(body, response.statusText),
+        {
+          status: response.status,
+          code: readResponseCode(body),
+          responseBody: body,
+        }
+      );
     }
 
     if (body === null) {
@@ -337,7 +387,9 @@ export class AliOssServerSdk {
     const dayPath = now.toISOString().slice(0, 10).replaceAll("-", "/");
     const prefix = normalizePrefix(objectPrefix ?? this.objectPrefix);
     const filename = sanitizeFilename(originalName);
-    return [prefix, dayPath, `${Date.now()}-${randomUUID()}-${filename}`].filter(Boolean).join("/");
+    return [prefix, dayPath, `${Date.now()}-${randomUUID()}-${filename}`]
+      .filter(Boolean)
+      .join("/");
   }
 
   private joinUrl(path: string): string {
@@ -345,13 +397,19 @@ export class AliOssServerSdk {
   }
 }
 
-export function createAliOssServerSdk(options: AliOssServerSdkOptions): AliOssServerSdk {
+export function createAliOssServerSdk(
+  options: AliOssServerSdkOptions
+): AliOssServerSdk {
   return new AliOssServerSdk(options);
 }
 
-function readUploadResult(body: Partial<AliOssUploadResult>): AliOssUploadResult {
+function readUploadResult(
+  body: Partial<AliOssUploadResult>
+): AliOssUploadResult {
   if (!body.objectKey || !body.url || !body.bucket) {
-    throw new AliOssServerSdkError("OSS upload response is invalid", { responseBody: body });
+    throw new AliOssServerSdkError("OSS upload response is invalid", {
+      responseBody: body,
+    });
   }
 
   return {
@@ -362,26 +420,41 @@ function readUploadResult(body: Partial<AliOssUploadResult>): AliOssUploadResult
   };
 }
 
-function validateImage(buffer: BinaryInput, mimeType: string, maxBytes: number): void {
+function validateImage(
+  buffer: BinaryInput,
+  mimeType: string,
+  maxBytes: number
+): void {
   if (byteLength(buffer) <= 0) {
-    throw new AliOssServerSdkError("image buffer is required", { code: "INVALID_IMAGE" });
+    throw new AliOssServerSdkError("image buffer is required", {
+      code: "INVALID_IMAGE",
+    });
   }
 
   if (!IMAGE_MIME_TYPES.has(mimeType)) {
-    throw new AliOssServerSdkError("only png, jpg, webp and gif images are supported", {
-      code: "INVALID_IMAGE_TYPE",
-    });
+    throw new AliOssServerSdkError(
+      "only png, jpg, webp and gif images are supported",
+      {
+        code: "INVALID_IMAGE_TYPE",
+      }
+    );
   }
 
   if (byteLength(buffer) > maxBytes) {
-    throw new AliOssServerSdkError(`image size must be no more than ${maxBytes} bytes`, {
-      code: "IMAGE_TOO_LARGE",
-    });
+    throw new AliOssServerSdkError(
+      `image size must be no more than ${maxBytes} bytes`,
+      {
+        code: "IMAGE_TOO_LARGE",
+      }
+    );
   }
 }
 
 function normalizeRequiredUrl(value: string, fieldName: string): string {
-  const normalized = normalizeRequiredString(value, fieldName).replace(/\/+$/u, "");
+  const normalized = normalizeRequiredString(value, fieldName).replace(
+    /\/+$/u,
+    ""
+  );
 
   try {
     const url = new URL(normalized);
@@ -389,7 +462,9 @@ function normalizeRequiredUrl(value: string, fieldName: string): string {
       throw new Error("Invalid protocol");
     }
   } catch {
-    throw new AliOssServerSdkError(`${fieldName} must be an absolute http(s) URL`);
+    throw new AliOssServerSdkError(
+      `${fieldName} must be an absolute http(s) URL`
+    );
   }
 
   return normalized;
@@ -405,7 +480,10 @@ function normalizeRequiredString(value: string, fieldName: string): string {
 }
 
 function normalizePrefix(value: string): string {
-  return value.trim().replaceAll("\\", "/").replace(/^\/+|\/+$/gu, "");
+  return value
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\/+|\/+$/gu, "");
 }
 
 function sanitizeFilename(originalName: string): string {
@@ -447,7 +525,11 @@ function readResponseMessage(body: unknown, fallback: string): string {
 }
 
 function readResponseCode(body: unknown): string | undefined {
-  if (isRecord(body) && isRecord(body.error) && typeof body.error.code === "string") {
+  if (
+    isRecord(body) &&
+    isRecord(body.error) &&
+    typeof body.error.code === "string"
+  ) {
     return body.error.code;
   }
 

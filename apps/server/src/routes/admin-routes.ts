@@ -1,7 +1,10 @@
 import Router from "@koa/router";
 
 import { authenticateAdmin } from "../middleware/authenticate-admin.js";
-import { getAllowedIps, isIpAllowlistEnabled } from "../services/ip-allowlist-service.js";
+import {
+  getAllowedIps,
+  isIpAllowlistEnabled,
+} from "../services/ip-allowlist-service.js";
 import {
   getRateLimitSettings,
   type RateLimitRule,
@@ -76,24 +79,36 @@ export function createAdminRouter(): Router {
 
 function readStringArray(value: unknown, fieldName: string): string[] {
   if (!Array.isArray(value)) {
-    throw badRequest("INVALID_FIELD", `${fieldName} must be an array of strings`);
+    throw badRequest(
+      "INVALID_FIELD",
+      `${fieldName} must be an array of strings`
+    );
   }
 
   return value.map((item, index) => {
     if (typeof item !== "string") {
-      throw badRequest("INVALID_FIELD", `${fieldName}[${index}] must be a string`);
+      throw badRequest(
+        "INVALID_FIELD",
+        `${fieldName}[${index}] must be a string`
+      );
     }
 
     const normalized = item.trim();
     if (!normalized) {
-      throw badRequest("INVALID_FIELD", `${fieldName}[${index}] must not be empty`);
+      throw badRequest(
+        "INVALID_FIELD",
+        `${fieldName}[${index}] must not be empty`
+      );
     }
 
     return normalized;
   });
 }
 
-function readOptionalRateLimitRule(value: unknown, fieldName: string): RateLimitRule | null {
+function readOptionalRateLimitRule(
+  value: unknown,
+  fieldName: string
+): RateLimitRule | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -104,7 +119,10 @@ function readOptionalRateLimitRule(value: unknown, fieldName: string): RateLimit
 
   return {
     windowMs: readPositiveInteger(value.windowMs, `${fieldName}.windowMs`),
-    maxRequests: readPositiveInteger(value.maxRequests, `${fieldName}.maxRequests`),
+    maxRequests: readPositiveInteger(
+      value.maxRequests,
+      `${fieldName}.maxRequests`
+    ),
   };
 }
 
@@ -115,21 +133,33 @@ function readRouteRules(value: unknown): RouteRateLimitRule[] {
 
   return value.map((item, index) => {
     if (!isRecord(item)) {
-      throw badRequest("INVALID_FIELD", `routeRules[${index}] must be an object`);
+      throw badRequest(
+        "INVALID_FIELD",
+        `routeRules[${index}] must be an object`
+      );
     }
 
     return {
       method: readNonEmptyString(item.method, `routeRules[${index}].method`),
       path: readNonEmptyString(item.path, `routeRules[${index}].path`),
-      windowMs: readPositiveInteger(item.windowMs, `routeRules[${index}].windowMs`),
-      maxRequests: readPositiveInteger(item.maxRequests, `routeRules[${index}].maxRequests`),
+      windowMs: readPositiveInteger(
+        item.windowMs,
+        `routeRules[${index}].windowMs`
+      ),
+      maxRequests: readPositiveInteger(
+        item.maxRequests,
+        `routeRules[${index}].maxRequests`
+      ),
     };
   });
 }
 
 function readPositiveInteger(value: unknown, fieldName: string): number {
   if (!Number.isInteger(value) || typeof value !== "number" || value <= 0) {
-    throw badRequest("INVALID_FIELD", `${fieldName} must be a positive integer`);
+    throw badRequest(
+      "INVALID_FIELD",
+      `${fieldName} must be a positive integer`
+    );
   }
 
   return value;
@@ -137,7 +167,10 @@ function readPositiveInteger(value: unknown, fieldName: string): number {
 
 function readNonEmptyString(value: unknown, fieldName: string): string {
   if (typeof value !== "string" || !value.trim()) {
-    throw badRequest("INVALID_FIELD", `${fieldName} must be a non-empty string`);
+    throw badRequest(
+      "INVALID_FIELD",
+      `${fieldName} must be a non-empty string`
+    );
   }
 
   return value.trim();

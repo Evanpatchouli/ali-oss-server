@@ -30,9 +30,14 @@ export function IpAllowlistPanel(props: IpAllowlistPanelProps) {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1.5}
-        sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" } }}
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", sm: "center" },
+        }}
       >
-        <Typography sx={{ color: "text.secondary" }}>当前草稿包含 {activeIpCount} 个 IP。</Typography>
+        <Typography sx={{ color: "text.secondary" }}>
+          当前草稿包含 {activeIpCount} 个 IP。
+        </Typography>
         <Button variant="contained" onClick={onSave} disabled={pageLoading}>
           保存 IP 限制
         </Button>

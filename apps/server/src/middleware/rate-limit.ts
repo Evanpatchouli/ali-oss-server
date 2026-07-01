@@ -1,6 +1,9 @@
 import type { Middleware } from "koa";
 
-import { checkRateLimit, shouldApplyRateLimit } from "../services/rate-limit-service.js";
+import {
+  checkRateLimit,
+  shouldApplyRateLimit,
+} from "../services/rate-limit-service.js";
 import { tooManyRequests } from "../utils/http-error.js";
 import { normalizeOptionalIp } from "../utils/ip.js";
 
@@ -14,7 +17,8 @@ export function enforceRateLimit(): Middleware {
       return;
     }
 
-    const identifier = (normalizeOptionalIp(ctx.ip) ?? ctx.ip.trim()) || "unknown";
+    const identifier =
+      (normalizeOptionalIp(ctx.ip) ?? ctx.ip.trim()) || "unknown";
     const result = checkRateLimit({
       identifier,
       method: ctx.method,

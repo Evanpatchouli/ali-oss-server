@@ -1,7 +1,11 @@
 import Router from "@koa/router";
 
 import { authenticateClient } from "../services/auth-service.js";
-import { readObjectBody, readRequiredHeader, readRequiredStringField } from "../utils/request.js";
+import {
+  readObjectBody,
+  readRequiredHeader,
+  readRequiredStringField,
+} from "../utils/request.js";
 import { signAccessToken } from "../utils/token.js";
 
 /**

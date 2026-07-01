@@ -16,7 +16,10 @@ export function badRequest(code: string, message: string): HttpError {
   return new HttpError(400, code, message);
 }
 
-export function forbidden(code = "FORBIDDEN", message = "Forbidden"): HttpError {
+export function forbidden(
+  code = "FORBIDDEN",
+  message = "Forbidden"
+): HttpError {
   return new HttpError(403, code, message);
 }
 
@@ -24,14 +27,23 @@ export function payloadTooLarge(code: string, message: string): HttpError {
   return new HttpError(413, code, message);
 }
 
-export function tooManyRequests(code = "TOO_MANY_REQUESTS", message = "Too Many Requests"): HttpError {
+export function tooManyRequests(
+  code = "TOO_MANY_REQUESTS",
+  message = "Too Many Requests"
+): HttpError {
   return new HttpError(429, code, message);
 }
 
-export function unauthorized(code = "UNAUTHORIZED", message = "Unauthorized"): HttpError {
+export function unauthorized(
+  code = "UNAUTHORIZED",
+  message = "Unauthorized"
+): HttpError {
   return new HttpError(401, code, message);
 }
 
-export function serviceUnavailable(code = "SERVICE_UNAVAILABLE", message = "Service Unavailable"): HttpError {
+export function serviceUnavailable(
+  code = "SERVICE_UNAVAILABLE",
+  message = "Service Unavailable"
+): HttpError {
   return new HttpError(503, code, message);
 }

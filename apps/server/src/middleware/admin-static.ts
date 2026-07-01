@@ -38,7 +38,10 @@ export function serveAdminStatic(): Middleware {
 }
 
 function isAdminStaticRequest(method: string, path: string): boolean {
-  return (method === "GET" || method === "HEAD") && (path === "/admin" || path.startsWith("/admin/"));
+  return (
+    (method === "GET" || method === "HEAD") &&
+    (path === "/admin" || path.startsWith("/admin/"))
+  );
 }
 
 async function assertAdminBuildExists(): Promise<void> {

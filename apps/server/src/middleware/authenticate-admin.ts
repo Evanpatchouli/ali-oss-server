@@ -1,7 +1,10 @@
 import type { Middleware } from "koa";
 
 import { unauthorized } from "../utils/http-error.js";
-import { verifyAdminAccessToken, type VerifiedAdminAccessToken } from "../utils/token.js";
+import {
+  verifyAdminAccessToken,
+  type VerifiedAdminAccessToken,
+} from "../utils/token.js";
 
 declare module "koa" {
   interface DefaultState {

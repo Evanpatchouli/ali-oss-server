@@ -28,7 +28,10 @@ export function errorHandler(): Middleware {
   };
 }
 
-function toErrorResponse(error: unknown): { status: number; body: ErrorResponse } {
+function toErrorResponse(error: unknown): {
+  status: number;
+  body: ErrorResponse;
+} {
   if (error instanceof HttpError) {
     return {
       status: error.status,
@@ -48,7 +51,8 @@ function toErrorResponse(error: unknown): { status: number; body: ErrorResponse 
       body: {
         error: {
           code: status >= 500 ? "INTERNAL_SERVER_ERROR" : "REQUEST_ERROR",
-          message: error.expose === false ? "Internal Server Error" : error.message,
+          message:
+            error.expose === false ? "Internal Server Error" : error.message,
         },
       },
     };
@@ -65,7 +69,9 @@ function toErrorResponse(error: unknown): { status: number; body: ErrorResponse 
   };
 }
 
-function isHttpErrorLike(value: unknown): value is { status: number; message: string; expose?: boolean } {
+function isHttpErrorLike(
+  value: unknown
+): value is { status: number; message: string; expose?: boolean } {
   return (
     typeof value === "object" &&
     value !== null &&

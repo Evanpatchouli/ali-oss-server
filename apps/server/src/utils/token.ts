@@ -52,7 +52,10 @@ export function signAdminAccessToken(username: string): {
   return signToken("admin", username);
 }
 
-function signToken(kind: AccessTokenPayload["kind"], subject: string): {
+function signToken(
+  kind: AccessTokenPayload["kind"],
+  subject: string
+): {
   token: string;
   expiresIn: number;
   expiresAt: string;
@@ -95,7 +98,9 @@ export function verifyAccessToken(token: string): VerifiedAccessToken {
 /**
  * Verifies an admin bearer token and returns the admin identity embedded in it.
  */
-export function verifyAdminAccessToken(token: string): VerifiedAdminAccessToken {
+export function verifyAdminAccessToken(
+  token: string
+): VerifiedAdminAccessToken {
   const payload = verifyToken(token, "admin");
 
   return {
@@ -105,7 +110,10 @@ export function verifyAdminAccessToken(token: string): VerifiedAdminAccessToken 
   };
 }
 
-function verifyToken(token: string, expectedKind: AccessTokenPayload["kind"]): AccessTokenPayload {
+function verifyToken(
+  token: string,
+  expectedKind: AccessTokenPayload["kind"]
+): AccessTokenPayload {
   const parts = token.split(".");
   if (parts.length !== 3) {
     throw unauthorized("TOKEN_INVALID", "Invalid token");
@@ -118,7 +126,12 @@ function verifyToken(token: string, expectedKind: AccessTokenPayload["kind"]): A
   }
 
   const payload = parseTokenPayload(encodedPayload);
-  if (payload.iss !== TOKEN_ISSUER || payload.kind !== expectedKind || !payload.sub || !payload.jti) {
+  if (
+    payload.iss !== TOKEN_ISSUER ||
+    payload.kind !== expectedKind ||
+    !payload.sub ||
+    !payload.jti
+  ) {
     throw unauthorized("TOKEN_INVALID", "Invalid token");
   }
 
@@ -130,7 +143,9 @@ function verifyToken(token: string, expectedKind: AccessTokenPayload["kind"]): A
 }
 
 function sign(value: string): string {
-  return createHmac("sha256", config.auth.tokenSecret).update(value).digest("base64url");
+  return createHmac("sha256", config.auth.tokenSecret)
+    .update(value)
+    .digest("base64url");
 }
 
 function base64UrlJson(value: unknown): string {
@@ -139,7 +154,9 @@ function base64UrlJson(value: unknown): string {
 
 function parseTokenPayload(encodedPayload: string): AccessTokenPayload {
   try {
-    const parsed = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as unknown;
+    const parsed = JSON.parse(
+      Buffer.from(encodedPayload, "base64url").toString("utf8")
+    ) as unknown;
     if (!isTokenPayload(parsed)) {
       throw new Error("Invalid token payload");
     }
@@ -169,7 +186,10 @@ function isTokenPayload(value: unknown): value is AccessTokenPayload {
 function safeEqual(received: string, expected: string): boolean {
   const receivedBuffer = Buffer.from(received);
   const expectedBuffer = Buffer.from(expected);
-  return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer);
+  return (
+    receivedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(receivedBuffer, expectedBuffer)
+  );
 }
 
 function currentUnixSeconds(): number {

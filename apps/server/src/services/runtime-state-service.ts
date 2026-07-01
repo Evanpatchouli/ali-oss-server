@@ -1,10 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import {
-  getAllowedIps,
-  replaceAllowedIps,
-} from "./ip-allowlist-service.js";
+import { getAllowedIps, replaceAllowedIps } from "./ip-allowlist-service.js";
 import {
   getRateLimitSettings,
   replaceRateLimitSettings,
@@ -34,7 +31,10 @@ export async function initializeRuntimeState(): Promise<void> {
     replaceAllowedIps(persistedState.ipAllowlist);
     replaceRateLimitSettings(persistedState.rateLimit);
   } catch (error) {
-    console.error("Failed to apply persisted runtime state, falling back to defaults.", error);
+    console.error(
+      "Failed to apply persisted runtime state, falling back to defaults.",
+      error
+    );
     replaceAllowedIps([]);
     replaceRateLimitSettings({
       globalRule: null,
@@ -43,7 +43,9 @@ export async function initializeRuntimeState(): Promise<void> {
   }
 }
 
-export async function updatePersistedIpAllowlist(ips: string[]): Promise<string[]> {
+export async function updatePersistedIpAllowlist(
+  ips: string[]
+): Promise<string[]> {
   const previousState = getRuntimeStateSnapshot();
   const nextIps = replaceAllowedIps(ips);
 
@@ -92,7 +94,10 @@ function getRuntimeStateSnapshot(): PersistedRuntimeState {
 async function persistRuntimeState(): Promise<void> {
   const state = getRuntimeStateSnapshot();
   const serialized = `${JSON.stringify(state, null, 2)}\n`;
-  const temporaryFilePath = path.join(runtimeStateDirectory, "runtime-state.tmp");
+  const temporaryFilePath = path.join(
+    runtimeStateDirectory,
+    "runtime-state.tmp"
+  );
 
   await mkdir(runtimeStateDirectory, { recursive: true });
   await writeFile(temporaryFilePath, serialized, "utf8");
@@ -109,7 +114,10 @@ async function readPersistedState(): Promise<PersistedRuntimeState | null> {
       return null;
     }
 
-    console.error("Failed to read persisted runtime state, falling back to defaults.", error);
+    console.error(
+      "Failed to read persisted runtime state, falling back to defaults.",
+      error
+    );
     return null;
   }
 }
@@ -158,7 +166,11 @@ function readOptionalGlobalRule(value: unknown): RateLimitRule | null {
     return null;
   }
 
-  if (!isRecord(value) || typeof value.windowMs !== "number" || typeof value.maxRequests !== "number") {
+  if (
+    !isRecord(value) ||
+    typeof value.windowMs !== "number" ||
+    typeof value.maxRequests !== "number"
+  ) {
     throw new Error("Persisted globalRule is invalid");
   }
 

@@ -27,7 +27,10 @@ export function readOptionalObjectBody(ctx: Context): Record<string, unknown> {
   throw badRequest("INVALID_BODY", "Request body must be an object");
 }
 
-export function readRequiredStringField(source: Record<string, unknown>, fieldName: string): string {
+export function readRequiredStringField(
+  source: Record<string, unknown>,
+  fieldName: string
+): string {
   const value = readOptionalStringField(source, fieldName);
   if (!value) {
     throw badRequest("INVALID_FIELD", `${fieldName} is required`);
@@ -51,14 +54,20 @@ export function readRequiredHeader(ctx: Context, headerName: string): string {
 /**
  * Reads an optional string request header.
  */
-export function readOptionalHeader(ctx: Context, headerName: string): string | undefined {
+export function readOptionalHeader(
+  ctx: Context,
+  headerName: string
+): string | undefined {
   return normalizeString(ctx.get(headerName));
 }
 
 /**
  * Reads an optional boolean request header.
  */
-export function readOptionalBooleanHeader(ctx: Context, headerName: string): boolean | undefined {
+export function readOptionalBooleanHeader(
+  ctx: Context,
+  headerName: string
+): boolean | undefined {
   const value = readOptionalHeader(ctx, headerName);
   if (value === undefined) {
     return undefined;
@@ -67,7 +76,10 @@ export function readOptionalBooleanHeader(ctx: Context, headerName: string): boo
   return parseBooleanValue(value, headerName);
 }
 
-export function readOptionalStringField(source: Record<string, unknown>, fieldName: string): string | undefined {
+export function readOptionalStringField(
+  source: Record<string, unknown>,
+  fieldName: string
+): string | undefined {
   const rawValue = source[fieldName];
   if (rawValue === undefined || rawValue === null) {
     return undefined;
@@ -88,7 +100,10 @@ export function readOptionalStringField(source: Record<string, unknown>, fieldNa
   return normalizeString(rawValue);
 }
 
-export function readOptionalBooleanField(source: Record<string, unknown>, fieldName: string): boolean | undefined {
+export function readOptionalBooleanField(
+  source: Record<string, unknown>,
+  fieldName: string
+): boolean | undefined {
   const rawValue = source[fieldName];
   if (rawValue === undefined || rawValue === null) {
     return undefined;

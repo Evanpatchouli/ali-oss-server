@@ -21,14 +21,19 @@ type ApiError = {
   };
 };
 
-export async function login(username: string, password: string): Promise<AdminLoginResponse> {
+export async function login(
+  username: string,
+  password: string
+): Promise<AdminLoginResponse> {
   return request<AdminLoginResponse>("/api/admin/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
 }
 
-export async function fetchIpAllowlist(token: string): Promise<IpAllowlistResponse> {
+export async function fetchIpAllowlist(
+  token: string
+): Promise<IpAllowlistResponse> {
   return request<IpAllowlistResponse>("/api/admin/ip-allowlist", {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -36,7 +41,10 @@ export async function fetchIpAllowlist(token: string): Promise<IpAllowlistRespon
   });
 }
 
-export async function updateIpAllowlist(token: string, ips: string[]): Promise<IpAllowlistResponse> {
+export async function updateIpAllowlist(
+  token: string,
+  ips: string[]
+): Promise<IpAllowlistResponse> {
   return request<IpAllowlistResponse>("/api/admin/ip-allowlist", {
     method: "PUT",
     headers: {
@@ -46,7 +54,9 @@ export async function updateIpAllowlist(token: string, ips: string[]): Promise<I
   });
 }
 
-export async function fetchRateLimit(token: string): Promise<RateLimitResponse> {
+export async function fetchRateLimit(
+  token: string
+): Promise<RateLimitResponse> {
   return request<RateLimitResponse>("/api/admin/rate-limit", {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -56,7 +66,10 @@ export async function fetchRateLimit(token: string): Promise<RateLimitResponse> 
 
 export async function updateRateLimit(
   token: string,
-  payload: { globalRule: RateLimitRule | null; routeRules: RouteRateLimitRule[] },
+  payload: {
+    globalRule: RateLimitRule | null;
+    routeRules: RouteRateLimitRule[];
+  }
 ): Promise<RateLimitResponse> {
   return request<RateLimitResponse>("/api/admin/rate-limit", {
     method: "PUT",
@@ -78,7 +91,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const errorBody = (await safeParseJson(response)) as ApiError | undefined;
-    throw new Error(errorBody?.error?.message ?? `${response.status} ${response.statusText}`);
+    throw new Error(
+      errorBody?.error?.message ?? `${response.status} ${response.statusText}`
+    );
   }
 
   return (await response.json()) as T;

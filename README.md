@@ -70,20 +70,20 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 
 复制 `.env.example` 为 `.env` 后填写真实配置。
 
-| 变量 | 说明 |
-| --- | --- |
-| `PORT` | 服务端口，默认示例为 `9512` |
-| `AUTH_CLIENTS` | 调用方凭证数组，JSON 格式 |
-| `TOKEN_SECRET` | Bearer Token HMAC 签名密钥，至少 16 个字符 |
+| 变量                       | 说明                                       |
+| -------------------------- | ------------------------------------------ |
+| `PORT`                     | 服务端口，默认示例为 `9512`                |
+| `AUTH_CLIENTS`             | 调用方凭证数组，JSON 格式                  |
+| `TOKEN_SECRET`             | Bearer Token HMAC 签名密钥，至少 16 个字符 |
 | `TOKEN_EXPIRES_IN_SECONDS` | 业务 Token 与管理端 Token 的有效期，单位秒 |
-| `ADMIN_USERNAME` | 管理端登录账号 |
-| `ADMIN_PASSWORD` | 管理端登录密码 |
-| `OSS_REGION` | Bucket 所在地域，例如 `oss-cn-hangzhou` |
-| `OSS_BUCKET_NAME` | Bucket 名称 |
-| `OSS_ACCESS_KEY_ID` | 阿里云 AccessKey ID |
-| `OSS_ACCESS_KEY_SECRET` | 阿里云 AccessKey Secret |
-| `OSS_SECURE` | 是否使用 HTTPS 访问 OSS |
-| `UPLOAD_MAX_FILE_SIZE_MB` | 单文件上传大小限制 |
+| `ADMIN_USERNAME`           | 管理端登录账号                             |
+| `ADMIN_PASSWORD`           | 管理端登录密码                             |
+| `OSS_REGION`               | Bucket 所在地域，例如 `oss-cn-hangzhou`    |
+| `OSS_BUCKET_NAME`          | Bucket 名称                                |
+| `OSS_ACCESS_KEY_ID`        | 阿里云 AccessKey ID                        |
+| `OSS_ACCESS_KEY_SECRET`    | 阿里云 AccessKey Secret                    |
+| `OSS_SECURE`               | 是否使用 HTTPS 访问 OSS                    |
+| `UPLOAD_MAX_FILE_SIZE_MB`  | 单文件上传大小限制                         |
 
 `AUTH_CLIENTS` 示例：
 

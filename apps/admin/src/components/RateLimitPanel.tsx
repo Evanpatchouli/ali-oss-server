@@ -66,7 +66,12 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
         </Typography>
       </Box>
       <FormControlLabel
-        control={<Switch checked={globalEnabled} onChange={(event) => onGlobalEnabledChange(event.target.checked)} />}
+        control={
+          <Switch
+            checked={globalEnabled}
+            onChange={(event) => onGlobalEnabledChange(event.target.checked)}
+          />
+        }
         label="启用全局限流"
       />
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -91,7 +96,10 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={2}
-        sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", md: "center" },
+        }}
       >
         <Box>
           <Typography variant="h6">接口级限流</Typography>
@@ -109,7 +117,10 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
               onChange={(event) => onRoutePresetChange(event.target.value)}
             >
               {knownRoutes.map((route) => (
-                <MenuItem key={`${route.method} ${route.path}`} value={`${route.method} ${route.path}`}>
+                <MenuItem
+                  key={`${route.method} ${route.path}`}
+                  value={`${route.method} ${route.path}`}
+                >
                   {route.method} {route.path}
                 </MenuItem>
               ))}
@@ -125,21 +136,32 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
       </Stack>
 
       <Stack spacing={2}>
-        {routeRules.length === 0 ? <Alert severity="info">当前没有配置接口级限流。</Alert> : null}
+        {routeRules.length === 0 ? (
+          <Alert severity="info">当前没有配置接口级限流。</Alert>
+        ) : null}
         {routeRules.map((rule, index) => (
-          <Paper key={rule.id} sx={{ p: 2.5, backgroundColor: "rgba(255,255,255,0.72)" }}>
+          <Paper
+            key={rule.id}
+            sx={{ p: 2.5, backgroundColor: "rgba(255,255,255,0.72)" }}
+          >
             <Stack spacing={2}>
               <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                 <TextField
                   label="HTTP 方法"
                   value={rule.method}
-                  onChange={(event) => onRouteRuleChange(rule.id, { method: event.target.value.toUpperCase() })}
+                  onChange={(event) =>
+                    onRouteRuleChange(rule.id, {
+                      method: event.target.value.toUpperCase(),
+                    })
+                  }
                   sx={{ minWidth: 140 }}
                 />
                 <TextField
                   label="路径"
                   value={rule.path}
-                  onChange={(event) => onRouteRuleChange(rule.id, { path: event.target.value })}
+                  onChange={(event) =>
+                    onRouteRuleChange(rule.id, { path: event.target.value })
+                  }
                   fullWidth
                 />
               </Stack>
@@ -147,19 +169,33 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
                 <TextField
                   label="窗口时长 (ms)"
                   value={rule.windowMs}
-                  onChange={(event) => onRouteRuleChange(rule.id, { windowMs: Number(event.target.value) })}
+                  onChange={(event) =>
+                    onRouteRuleChange(rule.id, {
+                      windowMs: Number(event.target.value),
+                    })
+                  }
                   fullWidth
                 />
                 <TextField
                   label="窗口内最大请求数"
                   value={rule.maxRequests}
-                  onChange={(event) => onRouteRuleChange(rule.id, { maxRequests: Number(event.target.value) })}
+                  onChange={(event) =>
+                    onRouteRuleChange(rule.id, {
+                      maxRequests: Number(event.target.value),
+                    })
+                  }
                   fullWidth
                 />
               </Stack>
-              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Stack
+                direction="row"
+                sx={{ justifyContent: "space-between", alignItems: "center" }}
+              >
                 <Chip label={`规则 ${index + 1}`} variant="outlined" />
-                <Button color="error" onClick={() => onRemoveRouteRule(rule.id)}>
+                <Button
+                  color="error"
+                  onClick={() => onRemoveRouteRule(rule.id)}
+                >
                   删除
                 </Button>
               </Stack>
@@ -171,9 +207,14 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={1.5}
-        sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" } }}
+        sx={{
+          justifyContent: "space-between",
+          alignItems: { xs: "flex-start", sm: "center" },
+        }}
       >
-        <Typography sx={{ color: "text.secondary" }}>当前共配置 {routeRules.length} 条接口级规则。</Typography>
+        <Typography sx={{ color: "text.secondary" }}>
+          当前共配置 {routeRules.length} 条接口级规则。
+        </Typography>
         <Button variant="contained" onClick={onSave} disabled={pageLoading}>
           保存限流配置
         </Button>

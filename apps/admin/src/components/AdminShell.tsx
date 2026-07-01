@@ -55,17 +55,30 @@ export function AdminShell(props: AdminShellProps) {
         position="sticky"
         color="transparent"
         elevation={0}
-        sx={{ backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(15, 23, 42, 0.08)" }}
+        sx={{
+          backdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+        }}
       >
         <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 1 }}>
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="overline" sx={{ color: "primary.main", letterSpacing: "0.16em" }}>
+            <Typography
+              variant="overline"
+              sx={{ color: "primary.main", letterSpacing: "0.16em" }}
+            >
               管理端
             </Typography>
             <Typography variant="h6">Ali OSS ADMIN</Typography>
           </Box>
-          <Chip label={`管理员：${session.username}`} color="primary" variant="outlined" />
-          <Chip label={`到期：${new Date(session.expiresAt).toLocaleString()}`} variant="outlined" />
+          <Chip
+            label={`管理员：${session.username}`}
+            color="primary"
+            variant="outlined"
+          />
+          <Chip
+            label={`到期：${new Date(session.expiresAt).toLocaleString()}`}
+            variant="outlined"
+          />
           <Button onClick={onLogout}>退出</Button>
         </Toolbar>
       </AppBar>
@@ -87,24 +100,38 @@ export function AdminShell(props: AdminShellProps) {
             <Stack
               direction={{ xs: "column", md: "row" }}
               spacing={2}
-              sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" } }}
+              sx={{
+                justifyContent: "space-between",
+                alignItems: { xs: "flex-start", md: "center" },
+              }}
             >
               <Box>
                 <Typography variant="h4">访问策略与接口节流</Typography>
-                <Typography sx={{ mt: 1, color: "text.secondary", maxWidth: 720 }}>
-                  动态 IP 限制和限流规则都保存在服务内存中。重启服务后会恢复为默认状态，请按需重新配置。
+                <Typography
+                  sx={{ mt: 1, color: "text.secondary", maxWidth: 720 }}
+                >
+                  动态 IP
+                  限制和限流规则都保存在服务内存中。重启服务后会恢复为默认状态，请按需重新配置。
                 </Typography>
               </Box>
               <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
                 <Chip
-                  label={ipStatus.enabled ? `IP 限制已启用 (${ipStatus.ips.length})` : "IP 限制未启用"}
+                  label={
+                    ipStatus.enabled
+                      ? `IP 限制已启用 (${ipStatus.ips.length})`
+                      : "IP 限制未启用"
+                  }
                   color={ipStatus.enabled ? "secondary" : "default"}
                 />
                 <Chip
                   label={globalEnabled ? "全局限流已启用" : "全局限流未启用"}
                   color={globalEnabled ? "primary" : "default"}
                 />
-                <Button variant="outlined" onClick={onRefresh} disabled={pageLoading}>
+                <Button
+                  variant="outlined"
+                  onClick={onRefresh}
+                  disabled={pageLoading}
+                >
                   {pageLoading ? "刷新中..." : "刷新"}
                 </Button>
               </Stack>
@@ -112,7 +139,11 @@ export function AdminShell(props: AdminShellProps) {
           </Paper>
 
           <Paper sx={{ overflow: "hidden" }}>
-            <Tabs value={tab} onChange={(_event, nextValue) => onTabChange(nextValue)} variant="fullWidth">
+            <Tabs
+              value={tab}
+              onChange={(_event, nextValue) => onTabChange(nextValue)}
+              variant="fullWidth"
+            >
               <Tab label="动态 IP 限制" />
               <Tab label="接口限流" />
             </Tabs>

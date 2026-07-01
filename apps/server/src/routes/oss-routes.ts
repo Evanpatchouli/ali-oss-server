@@ -7,8 +7,16 @@ import type { ScalarOrArrayFiles } from "koa-body";
 
 import { config } from "../config/env.js";
 import { authenticate } from "../middleware/authenticate.js";
-import { deleteObject, uploadLocalFile, uploadStream } from "../services/oss-service.js";
-import { badRequest, payloadTooLarge, unauthorized } from "../utils/http-error.js";
+import {
+  deleteObject,
+  uploadLocalFile,
+  uploadStream,
+} from "../services/oss-service.js";
+import {
+  badRequest,
+  payloadTooLarge,
+  unauthorized,
+} from "../utils/http-error.js";
 import {
   readObjectBody,
   readOptionalBooleanHeader,
@@ -36,7 +44,8 @@ export function createOssRouter(): Router {
     const file = readUploadedFile(readRequestFiles(ctx));
     const body = readOptionalObjectBody(ctx);
     const objectKey = readOptionalStringField(body, "objectKey");
-    const randomFilename = readOptionalBooleanField(body, "randomFilename") ?? false;
+    const randomFilename =
+      readOptionalBooleanField(body, "randomFilename") ?? false;
 
     try {
       const uploaded = await uploadLocalFile({
@@ -62,15 +71,21 @@ export function createOssRouter(): Router {
     assertSupportedStreamContentType(ctx);
 
     const contentLength = readOptionalContentLength(ctx);
-    if (contentLength !== undefined && contentLength > config.oss.maxFileSizeBytes) {
+    if (
+      contentLength !== undefined &&
+      contentLength > config.oss.maxFileSizeBytes
+    ) {
       throw createFileTooLargeError();
     }
 
     const uploaded = await uploadStream({
       clientId: readAuthenticatedClientId(ctx),
       objectKey: readOptionalHeader(ctx, "x-object-key"),
-      randomFilename: readOptionalBooleanHeader(ctx, "x-random-filename") ?? false,
-      stream: ctx.req.pipe(createSizeLimitedStream(config.oss.maxFileSizeBytes)),
+      randomFilename:
+        readOptionalBooleanHeader(ctx, "x-random-filename") ?? false,
+      stream: ctx.req.pipe(
+        createSizeLimitedStream(config.oss.maxFileSizeBytes)
+      ),
       fileName: readOptionalHeader(ctx, "x-file-name"),
       mimeType: readRequestMimeType(ctx),
       contentLength,
@@ -98,7 +113,9 @@ export function createOssRouter(): Router {
   return router;
 }
 
-function readAuthenticatedClientId(ctx: { state: { auth?: { clientId: string } } }): string {
+function readAuthenticatedClientId(ctx: {
+  state: { auth?: { clientId: string } };
+}): string {
   const clientId = ctx.state.auth?.clientId;
   if (!clientId) {
     throw unauthorized("TOKEN_REQUIRED", "Bearer token is required");
@@ -107,11 +124,15 @@ function readAuthenticatedClientId(ctx: { state: { auth?: { clientId: string } }
   return clientId;
 }
 
-function readRequestFiles(ctx: { request: unknown }): ScalarOrArrayFiles | undefined {
+function readRequestFiles(ctx: {
+  request: unknown;
+}): ScalarOrArrayFiles | undefined {
   return (ctx.request as { files?: ScalarOrArrayFiles }).files;
 }
 
-function readUploadedFile(files: unknown): Required<Pick<UploadedFile, "filepath">> & UploadedFile {
+function readUploadedFile(
+  files: unknown
+): Required<Pick<UploadedFile, "filepath">> & UploadedFile {
   if (!files || typeof files !== "object" || Array.isArray(files)) {
     throw badRequest("FILE_REQUIRED", "file is required");
   }
@@ -120,7 +141,7 @@ function readUploadedFile(files: unknown): Required<Pick<UploadedFile, "filepath
   const explicitFile = fileRecord.file;
   const file = Array.isArray(explicitFile)
     ? explicitFile[0]
-    : explicitFile ?? firstUploadedFile(fileRecord);
+    : (explicitFile ?? firstUploadedFile(fileRecord));
 
   if (!file?.filepath) {
     throw badRequest("FILE_REQUIRED", "file is required");
@@ -129,7 +150,9 @@ function readUploadedFile(files: unknown): Required<Pick<UploadedFile, "filepath
   return { ...file, filepath: file.filepath };
 }
 
-function firstUploadedFile(files: Record<string, UploadedFile | UploadedFile[]>): UploadedFile | undefined {
+function firstUploadedFile(
+  files: Record<string, UploadedFile | UploadedFile[]>
+): UploadedFile | undefined {
   for (const value of Object.values(files)) {
     if (Array.isArray(value)) {
       return value[0];
@@ -158,7 +181,7 @@ function assertSupportedStreamContentType(ctx: Context): void {
   ) {
     throw badRequest(
       "INVALID_CONTENT_TYPE",
-      "upload-stream requires a raw request body such as application/octet-stream",
+      "upload-stream requires a raw request body such as application/octet-stream"
     );
   }
 }
@@ -170,7 +193,10 @@ function readOptionalContentLength(ctx: Context): number | undefined {
   }
 
   if (!/^\d+$/u.test(rawValue)) {
-    throw badRequest("INVALID_HEADER", "content-length header must be a non-negative integer");
+    throw badRequest(
+      "INVALID_HEADER",
+      "content-length header must be a non-negative integer"
+    );
   }
 
   const value = Number.parseInt(rawValue, 10);
@@ -191,7 +217,9 @@ function createSizeLimitedStream(maxBytes: number): Transform {
 
   return new Transform({
     transform(chunk, _encoding, callback) {
-      const chunkSize = Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk));
+      const chunkSize = Buffer.isBuffer(chunk)
+        ? chunk.length
+        : Buffer.byteLength(String(chunk));
       bytesRead += chunkSize;
 
       if (bytesRead > maxBytes) {
@@ -207,6 +235,6 @@ function createSizeLimitedStream(maxBytes: number): Transform {
 function createFileTooLargeError() {
   return payloadTooLarge(
     "FILE_TOO_LARGE",
-    `file size must be no more than ${config.oss.maxFileSizeBytes / 1024 / 1024} MB`,
+    `file size must be no more than ${config.oss.maxFileSizeBytes / 1024 / 1024} MB`
   );
 }

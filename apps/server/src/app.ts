@@ -23,13 +23,18 @@ export function createApp(): Koa {
       json: true,
       urlencoded: true,
       multipart: true,
-      parsedMethods: [HttpMethodEnum.POST, HttpMethodEnum.PUT, HttpMethodEnum.PATCH, HttpMethodEnum.DELETE],
+      parsedMethods: [
+        HttpMethodEnum.POST,
+        HttpMethodEnum.PUT,
+        HttpMethodEnum.PATCH,
+        HttpMethodEnum.DELETE,
+      ],
       formidable: {
         multiples: false,
         keepExtensions: true,
         maxFileSize: config.oss.maxFileSizeBytes,
       },
-    }),
+    })
   );
   app.use(router.routes());
   app.use(router.allowedMethods());

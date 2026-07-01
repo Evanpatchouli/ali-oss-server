@@ -28,9 +28,13 @@ export async function uploadLocalFile(input: {
     objectKey: input.objectKey ?? getOriginalFilename(input.originalFilename),
     randomFilename: input.randomFilename ?? false,
   });
-  const result = await client.put(objectKey, path.normalize(input.localFilePath), {
-    mime: input.mimeType ?? undefined,
-  });
+  const result = await client.put(
+    objectKey,
+    path.normalize(input.localFilePath),
+    {
+      mime: input.mimeType ?? undefined,
+    }
+  );
 
   return buildUploadedObject(result.name);
 }
@@ -74,7 +78,10 @@ export async function deleteObject(input: {
   clientId: string;
   objectKey: string;
 }): Promise<{ objectKey: string; deleted: true }> {
-  const normalizedObjectKey = resolveClientObjectKey(input.clientId, input.objectKey);
+  const normalizedObjectKey = resolveClientObjectKey(
+    input.clientId,
+    input.objectKey
+  );
   await client.delete(normalizedObjectKey);
 
   return {
@@ -90,13 +97,22 @@ function buildClientUploadObjectKey(input: {
 }): string {
   const clientDirectory = normalizeClientDirectory(input.clientId);
   const segments = normalizeRelativeObjectKey(clientDirectory, input.objectKey);
-  const uploadSegments = input.randomFilename ? rewriteLastFilename(segments) : segments;
-  return validateObjectKeyLength([clientDirectory, ...uploadSegments].join("/"));
+  const uploadSegments = input.randomFilename
+    ? rewriteLastFilename(segments)
+    : segments;
+  return validateObjectKeyLength(
+    [clientDirectory, ...uploadSegments].join("/")
+  );
 }
 
 function resolveClientObjectKey(clientId: string, objectKey: string): string {
   const clientDirectory = normalizeClientDirectory(clientId);
-  return validateObjectKeyLength([clientDirectory, ...normalizeRelativeObjectKey(clientDirectory, objectKey)].join("/"));
+  return validateObjectKeyLength(
+    [
+      clientDirectory,
+      ...normalizeRelativeObjectKey(clientDirectory, objectKey),
+    ].join("/")
+  );
 }
 
 function normalizeClientDirectory(clientId: string): string {
@@ -108,10 +124,17 @@ function normalizeClientDirectory(clientId: string): string {
   return clientDirectory;
 }
 
-function normalizeRelativeObjectKey(clientDirectory: string, objectKey: string): string[] {
+function normalizeRelativeObjectKey(
+  clientDirectory: string,
+  objectKey: string
+): string[] {
   const normalized = objectKey.trim().replaceAll("\\", "/").replace(/^\/+/, "");
-  const segments = normalized.split("/").filter(Boolean).map(normalizeObjectKeySegment);
-  const relativeSegments = segments[0] === clientDirectory ? segments.slice(1) : segments;
+  const segments = normalized
+    .split("/")
+    .filter(Boolean)
+    .map(normalizeObjectKeySegment);
+  const relativeSegments =
+    segments[0] === clientDirectory ? segments.slice(1) : segments;
 
   if (relativeSegments.length === 0) {
     throw badRequest("INVALID_OBJECT_KEY", "objectKey is required");
@@ -124,15 +147,24 @@ function normalizeObjectKeySegment(segment: string): string {
   const normalized = segment.trim();
 
   if (!normalized) {
-    throw badRequest("INVALID_OBJECT_KEY", "objectKey contains an empty path segment");
+    throw badRequest(
+      "INVALID_OBJECT_KEY",
+      "objectKey contains an empty path segment"
+    );
   }
 
   if (normalized === "." || normalized === "..") {
-    throw badRequest("INVALID_OBJECT_KEY", "objectKey must not be a relative path segment");
+    throw badRequest(
+      "INVALID_OBJECT_KEY",
+      "objectKey must not be a relative path segment"
+    );
   }
 
   if (/[\x00-\x1F\x7F]/u.test(normalized)) {
-    throw badRequest("INVALID_OBJECT_KEY", "objectKey contains invalid control characters");
+    throw badRequest(
+      "INVALID_OBJECT_KEY",
+      "objectKey contains invalid control characters"
+    );
   }
 
   return normalized;
@@ -141,7 +173,8 @@ function normalizeObjectKeySegment(segment: string): string {
 function rewriteLastFilename(segments: string[]): string[] {
   const rewrittenSegments = [...segments];
   const currentFilename = rewrittenSegments[rewrittenSegments.length - 1];
-  rewrittenSegments[rewrittenSegments.length - 1] = buildRandomFilename(currentFilename);
+  rewrittenSegments[rewrittenSegments.length - 1] =
+    buildRandomFilename(currentFilename);
   return rewrittenSegments;
 }
 
@@ -166,7 +199,10 @@ function buildUploadedObject(objectKey: string): UploadedObject {
 
 function validateObjectKeyLength(objectKey: string): string {
   if (Buffer.byteLength(objectKey, "utf8") > 1023) {
-    throw badRequest("INVALID_OBJECT_KEY", "objectKey must be no more than 1023 bytes");
+    throw badRequest(
+      "INVALID_OBJECT_KEY",
+      "objectKey must be no more than 1023 bytes"
+    );
   }
 
   return objectKey;

@@ -1,6 +1,9 @@
 import type { Middleware } from "koa";
 
-import { isIpAllowed, isIpAllowlistEnabled } from "../services/ip-allowlist-service.js";
+import {
+  isIpAllowed,
+  isIpAllowlistEnabled,
+} from "../services/ip-allowlist-service.js";
 import { forbidden } from "../utils/http-error.js";
 import { normalizeOptionalIp } from "../utils/ip.js";
 

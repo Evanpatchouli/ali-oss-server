@@ -34,7 +34,10 @@ type AppConfig = {
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
-    throw badRequest("ENV_MISSING", `Missing required environment variable: ${name}`);
+    throw badRequest(
+      "ENV_MISSING",
+      `Missing required environment variable: ${name}`
+    );
   }
   return value;
 }
@@ -80,13 +83,19 @@ function parseAuthClients(rawValue: string): AuthClient[] {
   }
 
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    throw badRequest("ENV_INVALID", "AUTH_CLIENTS must contain at least one client");
+    throw badRequest(
+      "ENV_INVALID",
+      "AUTH_CLIENTS must contain at least one client"
+    );
   }
 
   const seenClientIds = new Set<string>();
   return parsed.map((item, index) => {
     if (!isRecord(item)) {
-      throw badRequest("ENV_INVALID", `AUTH_CLIENTS[${index}] must be an object`);
+      throw badRequest(
+        "ENV_INVALID",
+        `AUTH_CLIENTS[${index}] must be an object`
+      );
     }
 
     const clientId = readString(item.clientId);
@@ -94,12 +103,15 @@ function parseAuthClients(rawValue: string): AuthClient[] {
     if (!clientId || !clientSecret) {
       throw badRequest(
         "ENV_INVALID",
-        `AUTH_CLIENTS[${index}] must include non-empty clientId and clientSecret`,
+        `AUTH_CLIENTS[${index}] must include non-empty clientId and clientSecret`
       );
     }
 
     if (seenClientIds.has(clientId)) {
-      throw badRequest("ENV_INVALID", `Duplicate clientId in AUTH_CLIENTS: ${clientId}`);
+      throw badRequest(
+        "ENV_INVALID",
+        `Duplicate clientId in AUTH_CLIENTS: ${clientId}`
+      );
     }
 
     seenClientIds.add(clientId);
@@ -117,7 +129,10 @@ function readString(value: unknown): string | undefined {
 
 const tokenSecret = requiredEnv("TOKEN_SECRET");
 if (tokenSecret.length < 16) {
-  throw badRequest("ENV_INVALID", "TOKEN_SECRET must be at least 16 characters");
+  throw badRequest(
+    "ENV_INVALID",
+    "TOKEN_SECRET must be at least 16 characters"
+  );
 }
 
 export const config: AppConfig = {
@@ -137,6 +152,7 @@ export const config: AppConfig = {
     accessKeyId: requiredEnv("OSS_ACCESS_KEY_ID"),
     accessKeySecret: requiredEnv("OSS_ACCESS_KEY_SECRET"),
     secure: parseBoolean("OSS_SECURE", true),
-    maxFileSizeBytes: parsePositiveInt("UPLOAD_MAX_FILE_SIZE_MB", 20) * 1024 * 1024,
+    maxFileSizeBytes:
+      parsePositiveInt("UPLOAD_MAX_FILE_SIZE_MB", 20) * 1024 * 1024,
   },
 };
