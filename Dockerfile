@@ -17,7 +17,7 @@ COPY apps/server ./apps/server
 COPY apps/admin ./apps/admin
 COPY .env.example ./
 COPY README.md ./
-RUN pnpm --filter @ali-oss-server/admin build && pnpm --filter @ali-oss-server/server build
+RUN pnpm build:app
 
 FROM base AS runtime
 

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel --filter @ali-oss-server/server --filter @ali-oss-server/admin dev",
     "build:sdk": "pnpm --filter @ali-oss-server/sdk build",
+    "build:app": "pnpm --filter @ali-oss-server/admin build && pnpm --filter @ali-oss-server/server build",
     "build": "pnpm --filter @ali-oss-server/sdk build && pnpm --filter @ali-oss-server/admin build && pnpm --filter @ali-oss-server/server build",
     "typecheck": "pnpm --filter @ali-oss-server/sdk typecheck && pnpm --filter @ali-oss-server/admin typecheck && pnpm --filter @ali-oss-server/server typecheck",
     "start": "pnpm --filter @ali-oss-server/server start"
