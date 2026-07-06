@@ -1,5 +1,6 @@
 import type {
   AdminUploadResponse,
+  BucketObjectsResponse,
   AdminLoginResponse,
   IpAllowlistResponse,
   RateLimitResponse,
@@ -9,6 +10,7 @@ import type {
 
 export type {
   AdminUploadResponse,
+  BucketObjectsResponse,
   AdminLoginResponse,
   IpAllowlistResponse,
   RateLimitResponse,
@@ -106,6 +108,35 @@ export async function uploadAdminFile(
   });
 }
 
+export async function fetchAdminBucketObjects(
+  token: string,
+  params: {
+    prefix: string;
+    delimiter: string;
+    maxKeys: number;
+    continuationToken?: string;
+  }
+): Promise<BucketObjectsResponse> {
+  const searchParams = new URLSearchParams();
+  appendSearchParam(searchParams, "prefix", params.prefix);
+  appendSearchParam(searchParams, "delimiter", params.delimiter);
+  appendSearchParam(searchParams, "maxKeys", String(params.maxKeys));
+  appendSearchParam(
+    searchParams,
+    "continuationToken",
+    params.continuationToken
+  );
+
+  return request<BucketObjectsResponse>(
+    `/api/admin/oss/objects?${searchParams.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -154,4 +185,14 @@ function buildObjectKey(directory: string, filename: string): string {
     .map((part) => part.trim())
     .filter(Boolean)
     .join("/");
+}
+
+function appendSearchParam(
+  searchParams: URLSearchParams,
+  key: string,
+  value: string | undefined
+): void {
+  if (value?.trim()) {
+    searchParams.set(key, value.trim());
+  }
 }

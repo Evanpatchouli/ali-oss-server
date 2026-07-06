@@ -15,6 +15,8 @@
 - 上传接口使用 `client.put(objectKey, localFilePath, options)`。
 - 流式上传接口使用 `client.putStream(objectKey, requestStream, options)`，避免依赖服务器临时文件路径。
 - 删除接口使用 `client.delete(objectKey)`。
+- 管理端 Bucket 查询使用 `client.listV2`，只挂在 admin 鉴权路由下，不开放给业务调用方 token。
+- Bucket 查询分页沿用 OSS 的 `continuationToken` 机制；后端只返回当前页和 `nextContinuationToken`，不模拟总数。
 - 服务层统一校验 `objectKey`，禁止空路径、相对路径片段和控制字符。
 - OSS 对象路径按调用方隔离：上传和删除都会使用当前 TOKEN 中的 `clientId` 作为目录前缀，支持 `clientId/objectKey` 路径式结构。
 - 上传接口的 `randomFilename=true` 只重写最后一级文件名，保留调用方提供的目录和原文件扩展名。

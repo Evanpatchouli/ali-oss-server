@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  fetchAdminBucketObjects,
   fetchIpAllowlist,
   fetchRateLimit,
   login,
@@ -9,12 +10,14 @@ import {
   updateRateLimit,
 } from "../../api";
 import { AdminShell } from "../../components/AdminShell";
+import { BucketObjectsPanel } from "../../components/BucketObjectsPanel";
 import { FileUploadPanel } from "../../components/FileUploadPanel";
 import { IpAllowlistPanel } from "../../components/IpAllowlistPanel";
 import { LoginScreen } from "../../components/LoginScreen";
 import { RateLimitPanel } from "../../components/RateLimitPanel";
 import type {
   AdminUploadResponse,
+  BucketObjectsResponse,
   IpAllowlistResponse,
   RateLimitResponse,
 } from "../../types/api";
@@ -50,6 +53,14 @@ export function AdminConsole() {
     Array<{ method: string; path: string }>
   >([]);
   const [routePreset, setRoutePreset] = useState("");
+  const [bucketPrefix, setBucketPrefix] = useState("");
+  const [bucketDelimiter, setBucketDelimiter] = useState("/");
+  const [bucketMaxKeys, setBucketMaxKeys] = useState("100");
+  const [bucketListingPending, setBucketListingPending] = useState(false);
+  const [bucketObjectsResult, setBucketObjectsResult] =
+    useState<BucketObjectsResponse | null>(null);
+  const [bucketPageTokens, setBucketPageTokens] = useState<string[]>([""]);
+  const [bucketPageIndex, setBucketPageIndex] = useState(0);
   const [uploadDirectory, setUploadDirectory] = useState("");
   const [uploadFilename, setUploadFilename] = useState("");
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(
@@ -201,6 +212,106 @@ export function AdminConsole() {
     }
   }
 
+  async function handleSearchBucketObjects() {
+    await loadBucketObjects({
+      continuationToken: undefined,
+      pageIndex: 0,
+      prefix: bucketPrefix,
+      delimiter: bucketDelimiter,
+      resetTokens: true,
+    });
+  }
+
+  async function handleNextBucketObjectsPage() {
+    const continuationToken = bucketObjectsResult?.nextContinuationToken;
+    if (!continuationToken) {
+      return;
+    }
+
+    const nextPageIndex = bucketPageIndex + 1;
+    setBucketPageTokens((current) => {
+      const next = current.slice(0, nextPageIndex);
+      next[nextPageIndex] = continuationToken;
+      return next;
+    });
+    await loadBucketObjects({
+      continuationToken,
+      pageIndex: nextPageIndex,
+      prefix: bucketPrefix,
+      delimiter: bucketDelimiter,
+    });
+  }
+
+  async function handlePreviousBucketObjectsPage() {
+    if (bucketPageIndex <= 0) {
+      return;
+    }
+
+    const previousPageIndex = bucketPageIndex - 1;
+    await loadBucketObjects({
+      continuationToken: bucketPageTokens[previousPageIndex] || undefined,
+      pageIndex: previousPageIndex,
+      prefix: bucketPrefix,
+      delimiter: bucketDelimiter,
+    });
+  }
+
+  async function handleOpenBucketPrefix(prefix: string) {
+    setBucketPrefix(prefix);
+    await loadBucketObjects({
+      continuationToken: undefined,
+      pageIndex: 0,
+      prefix,
+      delimiter: bucketDelimiter,
+      resetTokens: true,
+    });
+  }
+
+  async function loadBucketObjects(input: {
+    continuationToken?: string;
+    delimiter: string;
+    pageIndex: number;
+    prefix: string;
+    resetTokens?: boolean;
+  }) {
+    if (!session) {
+      return;
+    }
+
+    const normalizedMaxKeys = bucketMaxKeys.trim();
+    if (!/^\d+$/u.test(normalizedMaxKeys)) {
+      setErrorMessage("每页数量必须是 1 到 1000 之间的整数。");
+      return;
+    }
+
+    const maxKeys = Number.parseInt(normalizedMaxKeys, 10);
+    if (!Number.isInteger(maxKeys) || maxKeys < 1 || maxKeys > 1000) {
+      setErrorMessage("每页数量必须是 1 到 1000 之间的整数。");
+      return;
+    }
+
+    setBucketListingPending(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetchAdminBucketObjects(session.token, {
+        prefix: input.prefix,
+        delimiter: input.delimiter,
+        maxKeys,
+        continuationToken: input.continuationToken,
+      });
+      setBucketObjectsResult(response);
+      setBucketPageIndex(input.pageIndex);
+      if (input.resetTokens) {
+        setBucketPageTokens([""]);
+      }
+    } catch (error) {
+      handleRequestError(error);
+    } finally {
+      setBucketListingPending(false);
+    }
+  }
+
   function handleUploadFileSelect(file: File) {
     setSelectedUploadFile(file);
     setUploadFilename(file.name);
@@ -271,6 +382,12 @@ export function AdminConsole() {
     setSession(null);
     setRouteRules([]);
     setKnownRoutes([]);
+    setBucketPrefix("");
+    setBucketDelimiter("/");
+    setBucketMaxKeys("100");
+    setBucketObjectsResult(null);
+    setBucketPageTokens([""]);
+    setBucketPageIndex(0);
     setUploadDirectory("");
     setSelectedUploadFile(null);
     setUploadFilename("");
@@ -363,6 +480,39 @@ export function AdminConsole() {
           onRoutePresetChange={setRoutePreset}
           onRouteRuleChange={handleRouteRuleChange}
           onSave={() => void handleSaveRateLimit()}
+        />
+      ) : tab === 2 ? (
+        <BucketObjectsPanel
+          canGoBack={bucketPageIndex > 0}
+          canGoNext={Boolean(bucketObjectsResult?.nextContinuationToken)}
+          delimiter={bucketDelimiter}
+          listingPending={bucketListingPending}
+          maxKeys={bucketMaxKeys}
+          pageIndex={bucketPageIndex}
+          prefix={bucketPrefix}
+          result={bucketObjectsResult}
+          onDelimiterChange={(value) => {
+            setBucketDelimiter(value);
+            setBucketObjectsResult(null);
+            setBucketPageTokens([""]);
+            setBucketPageIndex(0);
+          }}
+          onMaxKeysChange={(value) => {
+            setBucketMaxKeys(value);
+            setBucketObjectsResult(null);
+            setBucketPageTokens([""]);
+            setBucketPageIndex(0);
+          }}
+          onNextPage={() => void handleNextBucketObjectsPage()}
+          onOpenPrefix={(value) => void handleOpenBucketPrefix(value)}
+          onPrefixChange={(value) => {
+            setBucketPrefix(value);
+            setBucketObjectsResult(null);
+            setBucketPageTokens([""]);
+            setBucketPageIndex(0);
+          }}
+          onPreviousPage={() => void handlePreviousBucketObjectsPage()}
+          onSearch={() => void handleSearchBucketObjects()}
         />
       ) : (
         <FileUploadPanel

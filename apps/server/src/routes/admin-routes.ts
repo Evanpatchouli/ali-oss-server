@@ -4,7 +4,10 @@ import Router from "@koa/router";
 import type { ScalarOrArrayFiles } from "koa-body";
 
 import { authenticateAdmin } from "../middleware/authenticate-admin.js";
-import { uploadAdminLocalFile } from "../services/oss-service.js";
+import {
+  listAdminBucketObjects,
+  uploadAdminLocalFile,
+} from "../services/oss-service.js";
 import {
   getAllowedIps,
   isIpAllowlistEnabled,
@@ -69,6 +72,18 @@ export function createAdminRouter(): Router {
     } finally {
       await removeTempFile(file.filepath);
     }
+  });
+
+  router.get("/oss/objects", authenticateAdmin(), async (ctx) => {
+    ctx.body = await listAdminBucketObjects({
+      prefix: readOptionalQueryString(ctx.query.prefix, "prefix"),
+      delimiter: readOptionalQueryString(ctx.query.delimiter, "delimiter"),
+      continuationToken: readOptionalQueryString(
+        ctx.query.continuationToken,
+        "continuationToken"
+      ),
+      maxKeys: readOptionalMaxKeys(ctx.query.maxKeys),
+    });
   });
 
   router.get("/ip-allowlist", authenticateAdmin(), (ctx) => {
@@ -139,6 +154,54 @@ function readRequestFiles(ctx: {
   request: unknown;
 }): ScalarOrArrayFiles | undefined {
   return (ctx.request as { files?: ScalarOrArrayFiles }).files;
+}
+
+function readOptionalQueryString(
+  value: unknown,
+  fieldName: string
+): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length !== 1 || typeof value[0] !== "string") {
+      throw badRequest("INVALID_QUERY", `${fieldName} must be a string`);
+    }
+
+    return value[0];
+  }
+
+  if (typeof value !== "string") {
+    throw badRequest("INVALID_QUERY", `${fieldName} must be a string`);
+  }
+
+  return value;
+}
+
+function readOptionalMaxKeys(value: unknown): number | undefined {
+  const rawValue = readOptionalQueryString(value, "maxKeys");
+  if (rawValue === undefined || !rawValue.trim()) {
+    return undefined;
+  }
+
+  const normalized = rawValue.trim();
+  if (!/^\d+$/u.test(normalized)) {
+    throw badRequest(
+      "INVALID_QUERY",
+      "maxKeys must be an integer from 1 to 1000"
+    );
+  }
+
+  const maxKeys = Number.parseInt(normalized, 10);
+  if (!Number.isInteger(maxKeys) || maxKeys < 1 || maxKeys > 1000) {
+    throw badRequest(
+      "INVALID_QUERY",
+      "maxKeys must be an integer from 1 to 1000"
+    );
+  }
+
+  return maxKeys;
 }
 
 function readUploadedFile(

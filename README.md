@@ -20,6 +20,7 @@ apps/
 - 动态 IP 限制
 - 全局接口限流
 - 接口级限流
+- 管理端分页查询 OSS Bucket 对象
 - 管理端点击/拖拽上传文件到 OSS
 - 后端生产环境托管管理端静态资源，访问地址为 `/admin`
 
@@ -98,7 +99,7 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 
 - 生产访问地址：`/admin`
 - 使用 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 登录
-- 登录后可管理动态 IP 限制、接口限流，并上传文件到 OSS
+- 登录后可管理动态 IP 限制、接口限流，分页查询 Bucket，并上传文件到 OSS
 
 ### 动态 IP 限制
 
@@ -124,6 +125,13 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 - 可编辑上传目录和目标文件名
 - 仅使用 admin token，和业务调用方 `clientId` 无关
 - 目录为空时，文件会上传到 Bucket 根路径
+
+### Bucket 查询
+
+- 仅使用 admin token
+- 基于 OSS ListObjectsV2 分页查询当前配置的 Bucket
+- 支持 `prefix` 前缀筛选、`delimiter=/` 目录分组、`maxKeys` 每页数量
+- OSS 不返回总数，管理端使用 `nextContinuationToken` 翻页
 
 ## 接口
 
@@ -195,6 +203,20 @@ curl -X PUT http://localhost:9512/api/admin/ip-allowlist \
 
 ```bash
 curl http://localhost:9512/api/admin/rate-limit \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+### 管理端分页查询 Bucket 对象
+
+```bash
+curl "http://localhost:9512/api/admin/oss/objects?prefix=uploads/&delimiter=/&maxKeys=100" \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+响应中的 `nextContinuationToken` 非空时，可继续查询下一页：
+
+```bash
+curl "http://localhost:9512/api/admin/oss/objects?prefix=uploads/&delimiter=/&maxKeys=100&continuationToken=<nextContinuationToken>" \
   -H "Authorization: Bearer <adminAccessToken>"
 ```
 

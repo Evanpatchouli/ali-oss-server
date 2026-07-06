@@ -12,6 +12,27 @@ export type UploadedObject = {
   bucket: string;
 };
 
+export type BucketObjectSummary = {
+  objectKey: string;
+  url: string;
+  size: number | null;
+  lastModified: string | null;
+  etag: string | null;
+  storageClass: string | null;
+};
+
+export type BucketObjectsPage = {
+  bucket: string;
+  prefix: string;
+  delimiter: string;
+  maxKeys: number;
+  keyCount: number | null;
+  isTruncated: boolean;
+  nextContinuationToken: string | null;
+  objects: BucketObjectSummary[];
+  prefixes: string[];
+};
+
 /**
  * Uploads a local file path to Aliyun OSS with a validated object key.
  */
@@ -60,6 +81,44 @@ export async function uploadAdminLocalFile(input: {
   );
 
   return buildUploadedObject(result.name);
+}
+
+/**
+ * Lists objects in the configured OSS bucket for admin-only operations.
+ */
+export async function listAdminBucketObjects(input: {
+  prefix?: string;
+  delimiter?: string;
+  continuationToken?: string;
+  maxKeys?: number;
+}): Promise<BucketObjectsPage> {
+  const prefix = normalizeOptionalListPath(input.prefix, "prefix");
+  const delimiter = normalizeOptionalDelimiter(input.delimiter);
+  const continuationToken = normalizeOptionalToken(input.continuationToken);
+  const maxKeys = input.maxKeys ?? 100;
+  const listQuery = {
+    "max-keys": maxKeys,
+    ...(prefix ? { prefix } : {}),
+    ...(delimiter ? { delimiter } : {}),
+    ...(continuationToken ? { "continuation-token": continuationToken } : {}),
+  };
+  const result = (await client.listV2(
+    listQuery
+  )) as unknown as Record<string, unknown>;
+
+  return {
+    bucket: config.oss.bucket,
+    prefix,
+    delimiter,
+    maxKeys,
+    keyCount: readNullableNumber(result.keyCount),
+    isTruncated: readBoolean(result.isTruncated),
+    nextContinuationToken:
+      readNullableString(result.nextContinuationToken) ??
+      readNullableString(result.NextContinuationToken),
+    objects: readObjects(result.objects),
+    prefixes: readPrefixes(result.prefixes),
+  };
 }
 
 /**
@@ -140,6 +199,68 @@ function resolveClientObjectKey(clientId: string, objectKey: string): string {
 
 function buildAdminUploadObjectKey(objectKey: string): string {
   return validateObjectKeyLength(normalizeObjectKey(objectKey).join("/"));
+}
+
+function normalizeOptionalListPath(
+  value: string | undefined,
+  fieldName: string
+): string {
+  const normalized = value?.trim().replaceAll("\\", "/") ?? "";
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.startsWith("/")) {
+    throw badRequest("INVALID_FIELD", `${fieldName} must not start with /`);
+  }
+
+  if (/[\x00-\x1F\x7F]/u.test(normalized)) {
+    throw badRequest(
+      "INVALID_FIELD",
+      `${fieldName} contains invalid control characters`
+    );
+  }
+
+  if (Buffer.byteLength(normalized, "utf8") > 1023) {
+    throw badRequest(
+      "INVALID_FIELD",
+      `${fieldName} must be no more than 1023 bytes`
+    );
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalDelimiter(value: string | undefined): string {
+  const normalized = value?.trim() ?? "";
+  if (!normalized) {
+    return "";
+  }
+
+  if (/[\x00-\x1F\x7F]/u.test(normalized)) {
+    throw badRequest(
+      "INVALID_FIELD",
+      "delimiter contains invalid control characters"
+    );
+  }
+
+  return normalized;
+}
+
+function normalizeOptionalToken(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (/[\x00-\x1F\x7F]/u.test(normalized)) {
+    throw badRequest(
+      "INVALID_FIELD",
+      "continuationToken contains invalid control characters"
+    );
+  }
+
+  return normalized;
 }
 
 function normalizeClientDirectory(clientId: string): string {
@@ -243,4 +364,84 @@ function validateObjectKeyLength(objectKey: string): string {
   }
 
   return objectKey;
+}
+
+function readObjects(value: unknown): BucketObjectSummary[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((item) => {
+      const objectKey = readNullableString(item.name) ?? "";
+      return {
+        objectKey,
+        url: objectKey ? client.generateObjectUrl(objectKey) : "",
+        size: readNullableNumber(item.size),
+        lastModified: readNullableDateString(item.lastModified),
+        etag: readNullableString(item.etag),
+        storageClass:
+          readNullableString(item.storageClass) ??
+          readNullableString(item.storageClassType),
+      };
+    })
+    .filter((item) => item.objectKey);
+}
+
+function readPrefixes(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      if (isRecord(item)) {
+        return readNullableString(item.prefix);
+      }
+
+      return null;
+    })
+    .filter((item): item is string => Boolean(item));
+}
+
+function readNullableDateString(value: unknown): string | null {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  return readNullableString(value);
+}
+
+function readBoolean(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
+function readNullableNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function readNullableString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

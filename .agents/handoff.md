@@ -9,6 +9,7 @@
 - 已调整为 monorepo，拆分为 `apps/server` 与 `apps/admin`
 - 已新增 React + MUI 管理端，并由后端托管静态资源
 - 已新增管理员登录、动态 IP 限制和全局/接口级接口限流
+- 已新增管理端 OSS Bucket 分页查询能力，基于 ListObjectsV2 和 continuationToken 翻页
 - 已新增管理端文件上传能力，支持点击/拖拽选文件、编辑目录和目标文件名
 - 已为动态 IP 限制和限流配置新增本地 JSON 文件持久化
 - 已创建 `.env.example` 与可运行 `.env`
@@ -28,6 +29,7 @@
 - `POST /api/oss/upload-stream`
 - `DELETE /api/oss/object`
 - `POST /api/admin/auth/login`
+- `GET /api/admin/oss/objects`
 - `POST /api/admin/oss/upload`
 - `GET /api/admin/ip-allowlist`
 - `PUT /api/admin/ip-allowlist`
@@ -68,6 +70,8 @@ docker compose up -d --build
 - `sign` 生成规则为 `HMAC-SHA256(clientId, clientSecret)`，输出 `base64url`。
 - TOKEN 使用 HMAC SHA-256 签名，载荷包含 `clientId`、签发时间、过期时间和 token id。
 - 管理员账号密码从 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 读取，登录后签发独立 admin token。
+- `GET /api/admin/oss/objects` 仅接受 admin token，支持 `prefix`、`delimiter`、`maxKeys` 和 `continuationToken` 查询当前配置的 Bucket；`maxKeys` 限制为 1 到 1000。
+- OSS ListObjectsV2 不返回总数，管理端通过服务端返回的 `nextContinuationToken` 做下一页，并用本地 token 栈支持上一页。
 - 管理端上传使用 admin token，和业务调用方 `clientId` 无关。
 - `POST /api/admin/oss/upload` 接收 multipart 字段 `objectKey`、`file`，直接上传到指定 OSS 对象路径；`objectKey=file.png` 表示 Bucket 根路径下的 `file.png`。
 - 业务上传接口字段名为 `file`，可选传路径式 `objectKey`，最终 OSS 对象路径为 `clientId/objectKey`。

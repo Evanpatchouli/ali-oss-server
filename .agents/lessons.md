@@ -13,8 +13,11 @@
 - `@types/ali-oss` 中 `putStream` 的 `mime` 类型声明偏严格，实际调用可按需传入并在本地做窄范围类型兼容。
 - monorepo 下若服务端包不在仓库根目录，`dotenv.config()` 需要显式指定根级 `.env` 路径，否则会默认读取包目录下的 `.env`。
 - MUI 9 的 `Stack` 类型对系统属性收口更严格，`justifyContent`、`alignItems`、`flexWrap` 等布局值应通过 `sx` 传入更稳妥。
+- MUI 9 的 `TextField` 不再接受旧式 `inputProps` 类型，原生 input 属性应通过 `slotProps.htmlInput` 传入。
 - 需要简单持久化运行时配置时，用本地 JSON 文件比引入数据库更合适；只要启动加载、变更即落盘、坏文件回退默认即可满足管理后台场景。
 - 管理端 token 和业务调用方 token 分离时，管理端不能直接复用业务上传接口；若需求不涉及调用方隔离，应新增 admin 鉴权入口，并让它直接上传到指定 OSS 对象路径。
+- ali-oss 的 `listV2` 类型声明存在返回结构，但业务层仍可把结果转为 `Record<string, unknown>` 后统一归一化 `objects`、`prefixes`、`isTruncated` 和 `nextContinuationToken`。
+- ali-oss 在 V4 签名下调用 `listV2` 时不要传空字符串查询参数，例如 `prefix: ""` 会导致 OSS 返回签名不匹配；空参数应直接省略。
 
 ## pnpm 与 tsx
 

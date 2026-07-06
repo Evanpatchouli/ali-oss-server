@@ -27,6 +27,27 @@ export type RateLimitResponse = {
   knownRoutes: Array<{ method: string; path: string }>;
 };
 
+export type BucketObjectSummary = {
+  objectKey: string;
+  url: string;
+  size: number | null;
+  lastModified: string | null;
+  etag: string | null;
+  storageClass: string | null;
+};
+
+export type BucketObjectsResponse = {
+  bucket: string;
+  prefix: string;
+  delimiter: string;
+  maxKeys: number;
+  keyCount: number | null;
+  isTruncated: boolean;
+  nextContinuationToken: string | null;
+  objects: BucketObjectSummary[];
+  prefixes: string[];
+};
+
 export type AdminUploadResponse = {
   objectKey: string;
   url: string;

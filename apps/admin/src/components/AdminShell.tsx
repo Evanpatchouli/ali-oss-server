@@ -107,13 +107,13 @@ export function AdminShell(props: AdminShellProps) {
             >
               <Box>
                 <Typography variant="h4">
-                  访问策略、接口节流与文件上传
+                  访问策略、接口节流与 Bucket 管理
                 </Typography>
                 <Typography
                   sx={{ mt: 1, color: "text.secondary", maxWidth: 720 }}
                 >
-                  动态 IP 限制和限流规则会持久化保存；文件上传会直接写入已配置的
-                  OSS Bucket。
+                  动态 IP 限制和限流规则会持久化保存；Bucket
+                  查询与文件上传会直接访问已配置的 OSS Bucket。
                 </Typography>
               </Box>
               <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
@@ -148,6 +148,7 @@ export function AdminShell(props: AdminShellProps) {
             >
               <Tab label="动态 IP 限制" />
               <Tab label="接口限流" />
+              <Tab label="Bucket 查询" />
               <Tab label="文件上传" />
             </Tabs>
 
