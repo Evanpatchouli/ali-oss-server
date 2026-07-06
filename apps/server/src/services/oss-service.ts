@@ -40,6 +40,29 @@ export async function uploadLocalFile(input: {
 }
 
 /**
+ * Uploads a local file path to Aliyun OSS for admin-only operations.
+ */
+export async function uploadAdminLocalFile(input: {
+  objectKey?: string;
+  localFilePath: string;
+  originalFilename?: string | null;
+  mimeType?: string | null;
+}): Promise<UploadedObject> {
+  const objectKey = buildAdminUploadObjectKey(
+    input.objectKey ?? getOriginalFilename(input.originalFilename)
+  );
+  const result = await client.put(
+    objectKey,
+    path.normalize(input.localFilePath),
+    {
+      mime: input.mimeType ?? undefined,
+    }
+  );
+
+  return buildUploadedObject(result.name);
+}
+
+/**
  * Uploads a request stream to Aliyun OSS with a validated object key.
  */
 export async function uploadStream(input: {
@@ -115,6 +138,10 @@ function resolveClientObjectKey(clientId: string, objectKey: string): string {
   );
 }
 
+function buildAdminUploadObjectKey(objectKey: string): string {
+  return validateObjectKeyLength(normalizeObjectKey(objectKey).join("/"));
+}
+
 function normalizeClientDirectory(clientId: string): string {
   const clientDirectory = normalizeObjectKeySegment(clientId);
   if (clientDirectory.includes("/") || clientDirectory.includes("\\")) {
@@ -128,11 +155,7 @@ function normalizeRelativeObjectKey(
   clientDirectory: string,
   objectKey: string
 ): string[] {
-  const normalized = objectKey.trim().replaceAll("\\", "/").replace(/^\/+/, "");
-  const segments = normalized
-    .split("/")
-    .filter(Boolean)
-    .map(normalizeObjectKeySegment);
+  const segments = normalizeObjectKey(objectKey);
   const relativeSegments =
     segments[0] === clientDirectory ? segments.slice(1) : segments;
 
@@ -141,6 +164,20 @@ function normalizeRelativeObjectKey(
   }
 
   return relativeSegments;
+}
+
+function normalizeObjectKey(objectKey: string): string[] {
+  const normalized = objectKey.trim().replaceAll("\\", "/").replace(/^\/+/, "");
+  const segments = normalized
+    .split("/")
+    .filter(Boolean)
+    .map(normalizeObjectKeySegment);
+
+  if (segments.length === 0) {
+    throw badRequest("INVALID_OBJECT_KEY", "objectKey is required");
+  }
+
+  return segments;
 }
 
 function normalizeObjectKeySegment(segment: string): string {

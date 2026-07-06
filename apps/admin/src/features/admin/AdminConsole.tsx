@@ -4,14 +4,20 @@ import {
   fetchIpAllowlist,
   fetchRateLimit,
   login,
+  uploadAdminFile,
   updateIpAllowlist,
   updateRateLimit,
 } from "../../api";
 import { AdminShell } from "../../components/AdminShell";
+import { FileUploadPanel } from "../../components/FileUploadPanel";
 import { IpAllowlistPanel } from "../../components/IpAllowlistPanel";
 import { LoginScreen } from "../../components/LoginScreen";
 import { RateLimitPanel } from "../../components/RateLimitPanel";
-import type { IpAllowlistResponse, RateLimitResponse } from "../../types/api";
+import type {
+  AdminUploadResponse,
+  IpAllowlistResponse,
+  RateLimitResponse,
+} from "../../types/api";
 import type { EditableRouteRule, Session } from "../../types/admin";
 import {
   clearStoredSession,
@@ -44,6 +50,15 @@ export function AdminConsole() {
     Array<{ method: string; path: string }>
   >([]);
   const [routePreset, setRoutePreset] = useState("");
+  const [uploadDirectory, setUploadDirectory] = useState("");
+  const [uploadFilename, setUploadFilename] = useState("");
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(
+    null
+  );
+  const [uploadPending, setUploadPending] = useState(false);
+  const [uploadResult, setUploadResult] = useState<AdminUploadResponse | null>(
+    null
+  );
 
   useEffect(() => {
     if (!session) {
@@ -157,6 +172,50 @@ export function AdminConsole() {
     }
   }
 
+  async function handleUploadFile() {
+    if (!session || !selectedUploadFile) {
+      return;
+    }
+
+    if (!uploadFilename.trim()) {
+      setErrorMessage("请输入目标文件名。");
+      return;
+    }
+
+    setUploadPending(true);
+    setErrorMessage(null);
+    setUploadResult(null);
+
+    try {
+      const response = await uploadAdminFile(session.token, {
+        directory: uploadDirectory,
+        filename: uploadFilename,
+        file: selectedUploadFile,
+      });
+      setUploadResult(response);
+      setMessage(`文件已上传：${response.objectKey}`);
+    } catch (error) {
+      handleRequestError(error);
+    } finally {
+      setUploadPending(false);
+    }
+  }
+
+  function handleUploadFileSelect(file: File) {
+    setSelectedUploadFile(file);
+    setUploadFilename(file.name);
+    setUploadResult(null);
+    setErrorMessage(null);
+  }
+
+  function handleClearUploadForm() {
+    setUploadDirectory("");
+    setUploadFilename("");
+    setSelectedUploadFile(null);
+    setUploadResult(null);
+    setErrorMessage(null);
+  }
+
   function handleAddPresetRoute() {
     if (!routePreset) {
       return;
@@ -212,6 +271,10 @@ export function AdminConsole() {
     setSession(null);
     setRouteRules([]);
     setKnownRoutes([]);
+    setUploadDirectory("");
+    setSelectedUploadFile(null);
+    setUploadFilename("");
+    setUploadResult(null);
     setIpDraft("");
     setIpStatus({ ips: [], enabled: false });
     setMessage("已退出登录。");
@@ -282,7 +345,7 @@ export function AdminConsole() {
           onChange={setIpDraft}
           onSave={() => void handleSaveIpAllowlist()}
         />
-      ) : (
+      ) : tab === 1 ? (
         <RateLimitPanel
           globalEnabled={globalEnabled}
           globalMaxRequests={globalMaxRequests}
@@ -300,6 +363,25 @@ export function AdminConsole() {
           onRoutePresetChange={setRoutePreset}
           onRouteRuleChange={handleRouteRuleChange}
           onSave={() => void handleSaveRateLimit()}
+        />
+      ) : (
+        <FileUploadPanel
+          directory={uploadDirectory}
+          filename={uploadFilename}
+          selectedFile={selectedUploadFile}
+          uploadPending={uploadPending}
+          uploadResult={uploadResult}
+          onClear={handleClearUploadForm}
+          onDirectoryChange={(value) => {
+            setUploadDirectory(value);
+            setUploadResult(null);
+          }}
+          onFileSelect={handleUploadFileSelect}
+          onFilenameChange={(value) => {
+            setUploadFilename(value);
+            setUploadResult(null);
+          }}
+          onUpload={() => void handleUploadFile()}
         />
       )}
     </AdminShell>

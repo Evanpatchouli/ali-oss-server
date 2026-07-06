@@ -26,3 +26,9 @@ export type RateLimitResponse = {
   routeRules: RouteRateLimitRule[];
   knownRoutes: Array<{ method: string; path: string }>;
 };
+
+export type AdminUploadResponse = {
+  objectKey: string;
+  url: string;
+  bucket: string;
+};

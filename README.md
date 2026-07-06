@@ -20,6 +20,7 @@ apps/
 - 动态 IP 限制
 - 全局接口限流
 - 接口级限流
+- 管理端点击/拖拽上传文件到 OSS
 - 后端生产环境托管管理端静态资源，访问地址为 `/admin`
 
 ## 启动
@@ -97,7 +98,7 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 
 - 生产访问地址：`/admin`
 - 使用 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 登录
-- 登录后可管理动态 IP 限制和接口限流
+- 登录后可管理动态 IP 限制、接口限流，并上传文件到 OSS
 
 ### 动态 IP 限制
 
@@ -116,6 +117,13 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 - 当前限流按来源 IP 计数
 - 配置会持久化到根目录 `data/runtime-state.json`
 - Docker Compose 已挂载 `./data:/app/data`，容器重建后仍会保留这份状态文件
+
+### 文件上传
+
+- 支持点击或拖拽选择文件
+- 可编辑上传目录和目标文件名
+- 仅使用 admin token，和业务调用方 `clientId` 无关
+- 目录为空时，文件会上传到 Bucket 根路径
 
 ## 接口
 
@@ -213,6 +221,17 @@ curl -X PUT http://localhost:9512/api/admin/rate-limit \
   -H "Content-Type: application/json" \
   -d '{ "globalRule": null, "routeRules": [] }'
 ```
+
+### 管理端上传文件
+
+```bash
+curl -X POST http://localhost:9512/api/admin/oss/upload \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -F "objectKey=uploads/file.png" \
+  -F "file=@/path/to/file.png"
+```
+
+以上示例最终会上传到 `uploads/file.png`。如果 `objectKey` 只传 `file.png`，则会上传到 Bucket 根路径下的 `file.png`。
 
 ### multipart 上传文件
 

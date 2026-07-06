@@ -1,1 +1,0 @@
-{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/vite-env.d.ts","./src/components/adminshell.tsx","./src/components/ipallowlistpanel.tsx","./src/components/loginscreen.tsx","./src/components/ratelimitpanel.tsx","./src/features/admin/adminconsole.tsx","./src/types/admin.ts","./src/types/api.ts","./src/utils/session.ts"],"version":"6.0.3"}

@@ -1,6 +1,10 @@
+import { unlink } from "node:fs/promises";
+
 import Router from "@koa/router";
+import type { ScalarOrArrayFiles } from "koa-body";
 
 import { authenticateAdmin } from "../middleware/authenticate-admin.js";
+import { uploadAdminLocalFile } from "../services/oss-service.js";
 import {
   getAllowedIps,
   isIpAllowlistEnabled,
@@ -18,6 +22,12 @@ import { authenticateAdminUser } from "../services/admin-auth-service.js";
 import { badRequest } from "../utils/http-error.js";
 import { readObjectBody, readRequiredStringField } from "../utils/request.js";
 import { signAdminAccessToken } from "../utils/token.js";
+
+type UploadedFile = {
+  filepath?: string;
+  originalFilename?: string | null;
+  mimetype?: string | null;
+};
 
 /**
  * Creates routes for admin login and in-memory policy management.
@@ -39,6 +49,26 @@ export function createAdminRouter(): Router {
       expiresAt: token.expiresAt,
       username: admin.username,
     };
+  });
+
+  router.post("/oss/upload", authenticateAdmin(), async (ctx) => {
+    const file = readUploadedFile(readRequestFiles(ctx));
+    const body = readObjectBody(ctx);
+    const objectKey = readRequiredStringField(body, "objectKey");
+
+    try {
+      const uploaded = await uploadAdminLocalFile({
+        objectKey,
+        localFilePath: file.filepath,
+        originalFilename: file.originalFilename,
+        mimeType: file.mimetype,
+      });
+
+      ctx.status = 201;
+      ctx.body = uploaded;
+    } finally {
+      await removeTempFile(file.filepath);
+    }
   });
 
   router.get("/ip-allowlist", authenticateAdmin(), (ctx) => {
@@ -103,6 +133,54 @@ function readStringArray(value: unknown, fieldName: string): string[] {
 
     return normalized;
   });
+}
+
+function readRequestFiles(ctx: {
+  request: unknown;
+}): ScalarOrArrayFiles | undefined {
+  return (ctx.request as { files?: ScalarOrArrayFiles }).files;
+}
+
+function readUploadedFile(
+  files: unknown
+): Required<Pick<UploadedFile, "filepath">> & UploadedFile {
+  if (!files || typeof files !== "object" || Array.isArray(files)) {
+    throw badRequest("FILE_REQUIRED", "file is required");
+  }
+
+  const fileRecord = files as Record<string, UploadedFile | UploadedFile[]>;
+  const explicitFile = fileRecord.file;
+  const file = Array.isArray(explicitFile)
+    ? explicitFile[0]
+    : (explicitFile ?? firstUploadedFile(fileRecord));
+
+  if (!file?.filepath) {
+    throw badRequest("FILE_REQUIRED", "file is required");
+  }
+
+  return { ...file, filepath: file.filepath };
+}
+
+function firstUploadedFile(
+  files: Record<string, UploadedFile | UploadedFile[]>
+): UploadedFile | undefined {
+  for (const value of Object.values(files)) {
+    if (Array.isArray(value)) {
+      return value[0];
+    }
+
+    return value;
+  }
+
+  return undefined;
+}
+
+async function removeTempFile(filePath: string): Promise<void> {
+  try {
+    await unlink(filePath);
+  } catch {
+    // Formidable temporary files are best-effort cleanup.
+  }
 }
 
 function readOptionalRateLimitRule(

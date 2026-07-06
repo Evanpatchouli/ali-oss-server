@@ -106,12 +106,14 @@ export function AdminShell(props: AdminShellProps) {
               }}
             >
               <Box>
-                <Typography variant="h4">访问策略与接口节流</Typography>
+                <Typography variant="h4">
+                  访问策略、接口节流与文件上传
+                </Typography>
                 <Typography
                   sx={{ mt: 1, color: "text.secondary", maxWidth: 720 }}
                 >
-                  动态 IP
-                  限制和限流规则都保存在服务内存中。重启服务后会恢复为默认状态，请按需重新配置。
+                  动态 IP 限制和限流规则会持久化保存；文件上传会直接写入已配置的
+                  OSS Bucket。
                 </Typography>
               </Box>
               <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
@@ -146,6 +148,7 @@ export function AdminShell(props: AdminShellProps) {
             >
               <Tab label="动态 IP 限制" />
               <Tab label="接口限流" />
+              <Tab label="文件上传" />
             </Tabs>
 
             <Box sx={{ p: { xs: 2.5, md: 3.5 } }}>{children}</Box>
