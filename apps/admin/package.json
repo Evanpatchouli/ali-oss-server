@@ -15,7 +15,8 @@
     "@fontsource/ibm-plex-sans": "^5.2.8",
     "@mui/material": "^9.1.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",

@@ -28,6 +28,9 @@
 - 项目按 `apps/server` 和 `apps/admin` 拆分为 pnpm workspace。
 - 生产环境由后端托管 `apps/admin/dist`，管理端访问路径固定为 `/admin`。
 - 管理员鉴权使用 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD`，登录后签发独立的 admin token。
+- 管理端使用 BrowserRouter，basename 固定为 `/admin`；tab 状态由路径驱动，避免 UI 内部 tab state 与地址栏不同步。
+- Bucket 查询页将 `prefix` 放入 `/admin/bucket-objects/*` 动态路径，将 `maxKeys` 放入 URL 查询参数，便于复制和恢复查询条件。
+- Bucket 查询页进入时按 URL 条件自动加载数据；前缀输入不逐字触发查询，避免编辑过程产生多次请求。
 
 ## 动态 IP 限制与限流
 

@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 
 import {
   fetchAdminBucketObjects,
@@ -28,11 +36,23 @@ import {
   storeSession,
 } from "../../utils/session";
 
+const adminTabs = [
+  { path: "/ip-allowlist", label: "动态 IP 限制" },
+  { path: "/rate-limit", label: "接口限流" },
+  { path: "/bucket-objects", label: "Bucket 查询" },
+  { path: "/upload", label: "文件上传" },
+] as const;
+
+const defaultBucketMaxKeys = "10";
+
 export function AdminConsole() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lastAutoBucketQueryKey = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null>(() =>
     readStoredSession()
   );
-  const [tab, setTab] = useState(0);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginPending, setLoginPending] = useState(false);
@@ -53,9 +73,12 @@ export function AdminConsole() {
     Array<{ method: string; path: string }>
   >([]);
   const [routePreset, setRoutePreset] = useState("");
-  const [bucketPrefix, setBucketPrefix] = useState("");
+  const routeBucketPrefix = parseBucketPrefixFromPath(location.pathname);
+  const routeBucketMaxKeys =
+    searchParams.get("maxKeys") ?? defaultBucketMaxKeys;
+  const [bucketPrefix, setBucketPrefix] = useState(routeBucketPrefix);
   const [bucketDelimiter, setBucketDelimiter] = useState("/");
-  const [bucketMaxKeys, setBucketMaxKeys] = useState("100");
+  const [bucketMaxKeys, setBucketMaxKeys] = useState(routeBucketMaxKeys);
   const [bucketListingPending, setBucketListingPending] = useState(false);
   const [bucketObjectsResult, setBucketObjectsResult] =
     useState<BucketObjectsResponse | null>(null);
@@ -79,6 +102,52 @@ export function AdminConsole() {
     void refreshDashboard(session.token);
   }, [session]);
 
+  useEffect(() => {
+    setBucketPrefix(routeBucketPrefix);
+    setBucketObjectsResult(null);
+    setBucketPageTokens([""]);
+    setBucketPageIndex(0);
+  }, [routeBucketPrefix]);
+
+  useEffect(() => {
+    setBucketMaxKeys(routeBucketMaxKeys);
+    setBucketObjectsResult(null);
+    setBucketPageTokens([""]);
+    setBucketPageIndex(0);
+  }, [routeBucketMaxKeys]);
+
+  useEffect(() => {
+    if (!session || !isBucketObjectsPath(location.pathname)) {
+      return;
+    }
+
+    const autoQueryKey = [
+      session.token,
+      location.pathname,
+      routeBucketMaxKeys,
+      bucketDelimiter,
+    ].join("\n");
+    if (lastAutoBucketQueryKey.current === autoQueryKey) {
+      return;
+    }
+
+    lastAutoBucketQueryKey.current = autoQueryKey;
+    void loadBucketObjects({
+      continuationToken: undefined,
+      delimiter: bucketDelimiter,
+      pageIndex: 0,
+      prefix: routeBucketPrefix,
+      maxKeys: routeBucketMaxKeys,
+      resetTokens: true,
+    });
+  }, [
+    bucketDelimiter,
+    location.pathname,
+    routeBucketMaxKeys,
+    routeBucketPrefix,
+    session,
+  ]);
+
   const activeIpCount = useMemo(
     () =>
       ipDraft
@@ -87,6 +156,13 @@ export function AdminConsole() {
         .filter(Boolean).length,
     [ipDraft]
   );
+
+  const activeTabIndex = adminTabs.findIndex((item) =>
+    item.path === "/bucket-objects"
+      ? isBucketObjectsPath(location.pathname)
+      : item.path === location.pathname
+  );
+  const tab = activeTabIndex >= 0 ? activeTabIndex : 0;
 
   async function refreshDashboard(token: string) {
     setPageLoading(true);
@@ -213,13 +289,25 @@ export function AdminConsole() {
   }
 
   async function handleSearchBucketObjects() {
-    await loadBucketObjects({
-      continuationToken: undefined,
-      pageIndex: 0,
-      prefix: bucketPrefix,
-      delimiter: bucketDelimiter,
-      resetTokens: true,
-    });
+    const nextLocation = buildBucketObjectsLocation(
+      bucketPrefix,
+      bucketMaxKeys
+    );
+    const currentLocation = `${location.pathname}${location.search}`;
+    if (nextLocation === currentLocation) {
+      lastAutoBucketQueryKey.current = null;
+      await loadBucketObjects({
+        continuationToken: undefined,
+        delimiter: bucketDelimiter,
+        pageIndex: 0,
+        prefix: bucketPrefix,
+        maxKeys: bucketMaxKeys,
+        resetTokens: true,
+      });
+      return;
+    }
+
+    navigate(nextLocation);
   }
 
   async function handleNextBucketObjectsPage() {
@@ -239,6 +327,7 @@ export function AdminConsole() {
       pageIndex: nextPageIndex,
       prefix: bucketPrefix,
       delimiter: bucketDelimiter,
+      maxKeys: bucketMaxKeys,
     });
   }
 
@@ -253,23 +342,18 @@ export function AdminConsole() {
       pageIndex: previousPageIndex,
       prefix: bucketPrefix,
       delimiter: bucketDelimiter,
+      maxKeys: bucketMaxKeys,
     });
   }
 
   async function handleOpenBucketPrefix(prefix: string) {
-    setBucketPrefix(prefix);
-    await loadBucketObjects({
-      continuationToken: undefined,
-      pageIndex: 0,
-      prefix,
-      delimiter: bucketDelimiter,
-      resetTokens: true,
-    });
+    navigateToBucketObjects(prefix, bucketMaxKeys);
   }
 
   async function loadBucketObjects(input: {
     continuationToken?: string;
     delimiter: string;
+    maxKeys: string;
     pageIndex: number;
     prefix: string;
     resetTokens?: boolean;
@@ -278,7 +362,7 @@ export function AdminConsole() {
       return;
     }
 
-    const normalizedMaxKeys = bucketMaxKeys.trim();
+    const normalizedMaxKeys = input.maxKeys.trim();
     if (!/^\d+$/u.test(normalizedMaxKeys)) {
       setErrorMessage("每页数量必须是 1 到 1000 之间的整数。");
       return;
@@ -384,7 +468,7 @@ export function AdminConsole() {
     setKnownRoutes([]);
     setBucketPrefix("");
     setBucketDelimiter("/");
-    setBucketMaxKeys("100");
+    setBucketMaxKeys(defaultBucketMaxKeys);
     setBucketObjectsResult(null);
     setBucketPageTokens([""]);
     setBucketPageIndex(0);
@@ -425,6 +509,20 @@ export function AdminConsole() {
     setErrorMessage(nextMessage);
   }
 
+  function navigateToBucketObjects(prefix: string, maxKeys: string) {
+    navigate(buildBucketObjectsLocation(prefix, maxKeys));
+  }
+
+  function updateBucketMaxKeysInUrl(value: string) {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (value.trim()) {
+      nextSearchParams.set("maxKeys", value);
+    } else {
+      nextSearchParams.delete("maxKeys");
+    }
+    setSearchParams(nextSearchParams, { replace: true });
+  }
+
   if (!session) {
     return (
       <LoginScreen
@@ -448,92 +546,159 @@ export function AdminConsole() {
       pageLoading={pageLoading}
       session={session}
       tab={tab}
+      tabs={adminTabs}
       onDismissError={() => setErrorMessage(null)}
       onDismissMessage={() => setMessage(null)}
       onLogout={handleLogout}
       onRefresh={() => void refreshDashboard(session.token)}
-      onTabChange={setTab}
+      onTabChange={(value) => navigate(adminTabs[value].path)}
     >
-      {tab === 0 ? (
-        <IpAllowlistPanel
-          activeIpCount={activeIpCount}
-          draft={ipDraft}
-          pageLoading={pageLoading}
-          onChange={setIpDraft}
-          onSave={() => void handleSaveIpAllowlist()}
+      <Routes>
+        <Route index element={<Navigate to={adminTabs[0].path} replace />} />
+        <Route
+          path="ip-allowlist"
+          element={
+            <IpAllowlistPanel
+              activeIpCount={activeIpCount}
+              draft={ipDraft}
+              pageLoading={pageLoading}
+              onChange={setIpDraft}
+              onSave={() => void handleSaveIpAllowlist()}
+            />
+          }
         />
-      ) : tab === 1 ? (
-        <RateLimitPanel
-          globalEnabled={globalEnabled}
-          globalMaxRequests={globalMaxRequests}
-          globalWindowMs={globalWindowMs}
-          knownRoutes={knownRoutes}
-          pageLoading={pageLoading}
-          routePreset={routePreset}
-          routeRules={routeRules}
-          onAddCustomRoute={handleAddCustomRoute}
-          onAddPresetRoute={handleAddPresetRoute}
-          onGlobalEnabledChange={setGlobalEnabled}
-          onGlobalMaxRequestsChange={setGlobalMaxRequests}
-          onGlobalWindowMsChange={setGlobalWindowMs}
-          onRemoveRouteRule={handleRemoveRouteRule}
-          onRoutePresetChange={setRoutePreset}
-          onRouteRuleChange={handleRouteRuleChange}
-          onSave={() => void handleSaveRateLimit()}
+        <Route
+          path="rate-limit"
+          element={
+            <RateLimitPanel
+              globalEnabled={globalEnabled}
+              globalMaxRequests={globalMaxRequests}
+              globalWindowMs={globalWindowMs}
+              knownRoutes={knownRoutes}
+              pageLoading={pageLoading}
+              routePreset={routePreset}
+              routeRules={routeRules}
+              onAddCustomRoute={handleAddCustomRoute}
+              onAddPresetRoute={handleAddPresetRoute}
+              onGlobalEnabledChange={setGlobalEnabled}
+              onGlobalMaxRequestsChange={setGlobalMaxRequests}
+              onGlobalWindowMsChange={setGlobalWindowMs}
+              onRemoveRouteRule={handleRemoveRouteRule}
+              onRoutePresetChange={setRoutePreset}
+              onRouteRuleChange={handleRouteRuleChange}
+              onSave={() => void handleSaveRateLimit()}
+            />
+          }
         />
-      ) : tab === 2 ? (
-        <BucketObjectsPanel
-          canGoBack={bucketPageIndex > 0}
-          canGoNext={Boolean(bucketObjectsResult?.nextContinuationToken)}
-          delimiter={bucketDelimiter}
-          listingPending={bucketListingPending}
-          maxKeys={bucketMaxKeys}
-          pageIndex={bucketPageIndex}
-          prefix={bucketPrefix}
-          result={bucketObjectsResult}
-          onDelimiterChange={(value) => {
-            setBucketDelimiter(value);
-            setBucketObjectsResult(null);
-            setBucketPageTokens([""]);
-            setBucketPageIndex(0);
-          }}
-          onMaxKeysChange={(value) => {
-            setBucketMaxKeys(value);
-            setBucketObjectsResult(null);
-            setBucketPageTokens([""]);
-            setBucketPageIndex(0);
-          }}
-          onNextPage={() => void handleNextBucketObjectsPage()}
-          onOpenPrefix={(value) => void handleOpenBucketPrefix(value)}
-          onPrefixChange={(value) => {
-            setBucketPrefix(value);
-            setBucketObjectsResult(null);
-            setBucketPageTokens([""]);
-            setBucketPageIndex(0);
-          }}
-          onPreviousPage={() => void handlePreviousBucketObjectsPage()}
-          onSearch={() => void handleSearchBucketObjects()}
+        <Route
+          path="bucket-objects/*"
+          element={
+            <BucketObjectsPanel
+              canGoBack={bucketPageIndex > 0}
+              canGoNext={Boolean(bucketObjectsResult?.nextContinuationToken)}
+              delimiter={bucketDelimiter}
+              listingPending={bucketListingPending}
+              maxKeys={bucketMaxKeys}
+              pageIndex={bucketPageIndex}
+              prefix={bucketPrefix}
+              result={bucketObjectsResult}
+              onDelimiterChange={(value) => {
+                setBucketDelimiter(value);
+                setBucketObjectsResult(null);
+                setBucketPageTokens([""]);
+                setBucketPageIndex(0);
+              }}
+              onMaxKeysChange={(value) => {
+                setBucketMaxKeys(value);
+                updateBucketMaxKeysInUrl(value);
+                setBucketObjectsResult(null);
+                setBucketPageTokens([""]);
+                setBucketPageIndex(0);
+              }}
+              onNextPage={() => void handleNextBucketObjectsPage()}
+              onOpenPrefix={(value) => void handleOpenBucketPrefix(value)}
+              onPrefixChange={(value) => {
+                setBucketPrefix(value);
+                setBucketObjectsResult(null);
+                setBucketPageTokens([""]);
+                setBucketPageIndex(0);
+              }}
+              onPreviousPage={() => void handlePreviousBucketObjectsPage()}
+              onSearch={() => void handleSearchBucketObjects()}
+            />
+          }
         />
-      ) : (
-        <FileUploadPanel
-          directory={uploadDirectory}
-          filename={uploadFilename}
-          selectedFile={selectedUploadFile}
-          uploadPending={uploadPending}
-          uploadResult={uploadResult}
-          onClear={handleClearUploadForm}
-          onDirectoryChange={(value) => {
-            setUploadDirectory(value);
-            setUploadResult(null);
-          }}
-          onFileSelect={handleUploadFileSelect}
-          onFilenameChange={(value) => {
-            setUploadFilename(value);
-            setUploadResult(null);
-          }}
-          onUpload={() => void handleUploadFile()}
+        <Route
+          path="upload"
+          element={
+            <FileUploadPanel
+              directory={uploadDirectory}
+              filename={uploadFilename}
+              selectedFile={selectedUploadFile}
+              uploadPending={uploadPending}
+              uploadResult={uploadResult}
+              onClear={handleClearUploadForm}
+              onDirectoryChange={(value) => {
+                setUploadDirectory(value);
+                setUploadResult(null);
+              }}
+              onFileSelect={handleUploadFileSelect}
+              onFilenameChange={(value) => {
+                setUploadFilename(value);
+                setUploadResult(null);
+              }}
+              onUpload={() => void handleUploadFile()}
+            />
+          }
         />
-      )}
+        <Route path="*" element={<Navigate to={adminTabs[0].path} replace />} />
+      </Routes>
     </AdminShell>
   );
+}
+
+function isBucketObjectsPath(pathname: string): boolean {
+  return (
+    pathname === "/bucket-objects" || pathname.startsWith("/bucket-objects/")
+  );
+}
+
+function parseBucketPrefixFromPath(pathname: string): string {
+  if (pathname === "/bucket-objects" || pathname === "/bucket-objects/") {
+    return "";
+  }
+
+  if (!pathname.startsWith("/bucket-objects/")) {
+    return "";
+  }
+
+  return decodePathValue(pathname.slice("/bucket-objects/".length));
+}
+
+function buildBucketObjectsPath(prefix: string): string {
+  if (!prefix) {
+    return "/bucket-objects";
+  }
+
+  return `/bucket-objects/${encodePathValue(prefix)}`;
+}
+
+function buildBucketObjectsLocation(prefix: string, maxKeys: string): string {
+  const path = buildBucketObjectsPath(prefix);
+  const normalizedMaxKeys = maxKeys.trim();
+  return normalizedMaxKeys
+    ? `${path}?maxKeys=${encodeURIComponent(normalizedMaxKeys)}`
+    : path;
+}
+
+function encodePathValue(value: string): string {
+  return value.split("/").map(encodeURIComponent).join("/");
+}
+
+function decodePathValue(value: string): string {
+  try {
+    return value.split("/").map(decodeURIComponent).join("/");
+  } catch {
+    return value;
+  }
 }

@@ -156,6 +156,7 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
                           overflowWrap: "anywhere",
                           p: 0,
                           textAlign: "left",
+                          textTransform: "none",
                         }}
                       >
                         {item}

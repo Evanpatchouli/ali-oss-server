@@ -1,14 +1,13 @@
 # 当前任务
 
-- 日期：2026-07-06
-- 需求：在管理端和后端增加仅管理端可用的 OSS Bucket 分页查询。
-- 状态：已完成，已通过 `pnpm typecheck`，本次触碰文件未检测到 UTF-8 BOM。
-- 方案：基于 OSS ListObjectsV2 增加 admin 专用对象列表接口，前端新增 Bucket 查询页签并用 continuationToken 分页；后端省略空查询参数，避免 ali-oss V4 签名失败。
+- 日期：2026-07-07
+- 需求：修复直接访问 Bucket 查询 URL 时不会自动查询数据的问题。
+- 状态：已完成，已通过 `pnpm --filter @ali-oss-server/admin typecheck`，本次触碰文件未检测到 UTF-8 BOM。尝试使用 Browser 插件做渲染验证，但当前环境返回 `Browser is not available: iab`。
+- 方案：Bucket 查询路由首次进入或 URL 条件变化时自动按 URL 加载数据；前缀输入保留为草稿，点击“查询”或目录链接时再更新动态路径并加载，避免输入过程重复请求。
 
 ## 计划
 
-1. [x] 查阅全局规则、历史方案和项目结构。
-2. [x] 确认 OSS ListObjectsV2 参数和分页机制。
-3. [x] 新增后端 admin 专用 Bucket 分页查询接口。
-4. [x] 新增前端分页查询 API、类型和面板。
-5. [x] 更新 README 并运行类型检查。
+1. [x] 复核当前 Bucket URL 状态同步实现。
+2. [x] 增加按 URL 自动查询逻辑。
+3. [x] 调整前缀输入与 URL 更新时机。
+4. [x] 运行类型检查并检查触碰文件 BOM。

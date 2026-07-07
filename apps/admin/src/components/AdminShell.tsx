@@ -25,6 +25,7 @@ type AdminShellProps = {
   pageLoading: boolean;
   session: Session;
   tab: number;
+  tabs: ReadonlyArray<{ label: string; path: string }>;
   onDismissError: () => void;
   onDismissMessage: () => void;
   onLogout: () => void;
@@ -42,6 +43,7 @@ export function AdminShell(props: AdminShellProps) {
     pageLoading,
     session,
     tab,
+    tabs,
     onDismissError,
     onDismissMessage,
     onLogout,
@@ -146,10 +148,9 @@ export function AdminShell(props: AdminShellProps) {
               onChange={(_event, nextValue) => onTabChange(nextValue)}
               variant="fullWidth"
             >
-              <Tab label="动态 IP 限制" />
-              <Tab label="接口限流" />
-              <Tab label="Bucket 查询" />
-              <Tab label="文件上传" />
+              {tabs.map((item) => (
+                <Tab key={item.path} label={item.label} />
+              ))}
             </Tabs>
 
             <Box sx={{ p: { xs: 2.5, md: 3.5 } }}>{children}</Box>

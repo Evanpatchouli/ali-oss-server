@@ -11,6 +11,9 @@
 - 已新增管理员登录、动态 IP 限制和全局/接口级接口限流
 - 已新增管理端 OSS Bucket 分页查询能力，基于 ListObjectsV2 和 continuationToken 翻页
 - 已新增管理端文件上传能力，支持点击/拖拽选文件、编辑目录和目标文件名
+- 已为管理端接入 `react-router-dom`，各 tab 挂载到 `/admin/ip-allowlist`、`/admin/rate-limit`、`/admin/bucket-objects`、`/admin/upload`
+- Bucket 查询前缀已同步到动态路径，例如 `/admin/bucket-objects/uploads/images/`；每页数量同步到 `maxKeys` 查询参数。
+- 直接访问 Bucket 查询 URL 会按 URL 条件自动查询；前缀输入作为草稿，点击“查询”后才写入动态路径。
 - 已为动态 IP 限制和限流配置新增本地 JSON 文件持久化
 - 已创建 `.env.example` 与可运行 `.env`
 - 已补充 `pnpm build` 生产构建脚本
@@ -52,6 +55,8 @@ pnpm start
 ```
 
 - 生产环境管理端访问地址为 `http://localhost:9512/admin`
+- 管理端支持子路由直接访问，例如 `http://localhost:9512/admin/rate-limit`
+- Bucket 查询可通过 URL 带入前缀和每页数量，例如 `http://localhost:9512/admin/bucket-objects/uploads/?maxKeys=50`
 
 ## Docker Compose 运行
 
@@ -82,5 +87,6 @@ docker compose up -d --build
 - 接口限流支持全局规则和接口级规则，按来源 IP 计数，两者都未设置时不限流。
 - 动态 IP 限制和限流配置会持久化到根目录 `data/runtime-state.json`；Docker Compose 已挂载 `./data:/app/data`。
 - 后端在生产环境通过 `/admin` 托管 `apps/admin/dist` 静态资源。
+- 后端对无扩展名的 `/admin/*` 请求回退到 `index.html`，支持管理端 BrowserRouter 子路由刷新。
 - 删除接口同样按当前 `clientId` 目录收口，传相对路径或接口返回的完整 `clientId/objectKey` 都可删除当前调用方目录下的对象。
 - 上传路由通过 `readRequestFiles` 对 `koa-body` 的 `files` 类型做收口，避免 IDE 中 `ctx.request.files` 被 `@koa/router` 类型覆盖。
