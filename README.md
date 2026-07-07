@@ -60,6 +60,14 @@ pnpm start
 pnpm typecheck
 ```
 
+产品版本号更新：
+
+```bash
+pnpm version:app 1.0.1
+```
+
+该命令会同步更新 `apps/admin` 与 `apps/server` 的版本号；`apps/sdk` 独立发布，不会被该命令修改。
+
 Docker Compose 启动：
 
 ```bash

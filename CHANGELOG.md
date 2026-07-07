@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.1 - 2026-07-07
+
+### Added
+
+- 管理端文件上传页展示服务端最大上传大小限制，文件超限时提示并阻止提交。
+
+### Changed
+
+- Docker Compose 固定容器名为 `ali-oss-server`，默认网络名为 `ali-oss`，避免使用自动生成后缀。
+
+### Fixed
+
+- 修复 Docker 镜像中管理端 Git Hash 显示为 `unknown`、版本日志为空的问题。
+
 ## 1.0.0 - 2026-07-07
 
 ### Added

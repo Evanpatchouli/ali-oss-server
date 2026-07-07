@@ -10,6 +10,7 @@
     "build": "pnpm --filter @ali-oss-server/sdk build && pnpm --filter @ali-oss-server/admin build && pnpm --filter @ali-oss-server/server build",
     "typecheck": "pnpm --filter @ali-oss-server/sdk typecheck && pnpm --filter @ali-oss-server/admin typecheck && pnpm --filter @ali-oss-server/server typecheck",
     "start": "pnpm --filter @ali-oss-server/server start",
+    "version:app": "node scripts/bump-app-version.mjs",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,md}\""
   },

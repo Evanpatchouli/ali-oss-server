@@ -1,13 +1,13 @@
 # 当前任务
 
 - 日期：2026-07-07
-- 需求：固定 Docker Compose 网络名为 `ali-oss`，容器名为 `ali-oss-server`，不要默认后缀。
-- 状态：已完成，已通过 `docker compose config`，本次触碰文件未检测到 UTF-8 BOM。
-- 方案：在 `docker-compose.yml` 中显式设置 `container_name`，并为 default network 指定实际 `name`。
+- 需求：将产品版本号更新到 `1.0.1`，并封装版本号更新脚本。
+- 状态：已完成，已通过 `pnpm --filter @ali-oss-server/admin build`，本次触碰文件未检测到 UTF-8 BOM。
+- 方案：新增根脚本 `version:app`，调用 `scripts/bump-app-version.mjs` 同步更新 `apps/admin` 与 `apps/server` 版本号；SDK 独立发布，不纳入该脚本。
 
 ## 计划
 
-1. [x] 复核当前 Compose 命名配置。
-2. [x] 固定容器名和 default network 名称。
-3. [x] 运行 `docker compose config` 验证最终名称。
-4. [x] 检查触碰文件 BOM。
+1. [x] 读取 `maintain-changelog` 规则并确认 monorepo 版本策略。
+2. [x] 新增产品版本更新脚本。
+3. [x] 使用脚本更新 admin/server 版本到 `1.0.1`。
+4. [x] 运行验证并检查触碰文件 BOM。

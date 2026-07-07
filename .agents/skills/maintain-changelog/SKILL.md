@@ -13,12 +13,47 @@ Maintain `CHANGELOG.md` as a release history, not a commit log. Keep it useful f
 
 - Append a new version block at the top; do not overwrite historical release blocks.
 - Record releases, not every commit.
+- Prefer generating release notes from an explicit commit range or tag range, such as `v1.0.0..HEAD`.
 - Prefer short, user-facing wording over implementation details.
 - Keep each version focused on meaningful behavior, configuration, deployment, security, compatibility, or bug-fix changes.
 - Exclude formatting-only changes, internal refactors with no behavior change, routine dependency churn, generated files, and noisy implementation details.
 - Keep versions reverse chronological: newest first.
 - Use ISO dates: `YYYY-MM-DD`.
 - If the package version changes, ensure the newest changelog heading matches it.
+
+## Monorepo Version Policy
+
+This repository has separate release streams:
+
+- Root `CHANGELOG.md` tracks the deployable product: `apps/server` + `apps/admin` + Docker/deployment behavior.
+- Product releases should keep `apps/server/package.json` and `apps/admin/package.json` versions aligned.
+- Product release tags should use an app/server prefix, for example `app-v1.0.1`.
+- `apps/sdk` is independently released. Its version lives in `apps/sdk/package.json`.
+- SDK releases should use `apps/sdk/CHANGELOG.md` and tags such as `sdk-v1.0.1`.
+- Do not mix SDK-only release notes into the root `CHANGELOG.md`.
+- Do not bump `apps/sdk/package.json` during a product release unless the SDK is intentionally being released too.
+
+## Preferred Release Flow
+
+Use this flow when the maintainer commits feature work before bumping the version:
+
+1. Treat feature/fix commits as already completed work.
+2. Ask for or infer the release range, preferably from the previous version tag to `HEAD`, for example `app-v1.0.0..HEAD`.
+3. If no tag exists, use the maintainer-provided commit count or base commit, for example `HEAD~5..HEAD`.
+4. Generate or update `CHANGELOG.md` from that range.
+5. Keep the version bump and changelog as a separate release commit, for example `chore(release): 发布 app-v1.0.1`.
+6. Recommend tagging the release after the release commit, for example `git tag app-v1.0.1`.
+
+Do not require feature code to be staged when the maintainer explicitly asks for a release changelog based on committed history.
+
+Useful invocation examples:
+
+```text
+Use $maintain-changelog to update root CHANGELOG.md for app-v1.0.1 from app-v1.0.0..HEAD.
+Use $maintain-changelog to update apps/sdk/CHANGELOG.md for sdk-v1.0.1 from sdk-v1.0.0..HEAD.
+Use $maintain-changelog to update CHANGELOG.md for 1.0.1 from the last 5 commits.
+Use $maintain-changelog to review CHANGELOG.md before tagging app-v1.0.1.
+```
 
 ## Version Block Format
 
@@ -77,12 +112,17 @@ Avoid letting the visible admin version-log page become too large:
 
 ## Workflow
 
-1. Inspect the actual diff, commits, or requested release contents.
+1. Identify the source of truth for the release contents:
+   - Explicit tag or commit range, preferred for release work.
+   - Recent commits, if the maintainer gives a count or base commit.
+   - Staged diff, only when the user specifically asks to use staged changes.
+   - Manual bullet list, if the user provides one.
 2. Identify the release version and date.
-3. Add or update the top version block in `CHANGELOG.md`.
-4. Group entries under the smallest useful set of sections.
-5. Remove noisy entries that are not release-relevant.
-6. If a frontend version-log page consumes `CHANGELOG.md`, run the relevant typecheck/build to verify parsing or injection.
+3. Inspect the selected source with `git log --oneline`, `git show`, `git diff <range> --stat`, or `git diff --cached` as appropriate.
+4. Add or update the top version block in `CHANGELOG.md`.
+5. Group entries under the smallest useful set of sections.
+6. Remove noisy entries that are not release-relevant.
+7. If a frontend version-log page consumes `CHANGELOG.md`, run the relevant typecheck/build to verify parsing or injection.
 
 ## Wording Guidance
 
