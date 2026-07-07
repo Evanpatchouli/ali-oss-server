@@ -18,6 +18,7 @@
 - 管理端新增版本日志页 `/admin/version-log`，展示当前版本、Git Hash、构建时间、应用名称和由根目录 `CHANGELOG.md` 注入的 changelog。
 - 已新增本地 skill `.agents/skills/maintain-changelog`，用于维护 `CHANGELOG.md` 的发布粒度、格式、归档和更新规则。
 - Docker 构建阶段会复制根目录 `CHANGELOG.md` 和最小 `.git` 元数据，管理端容器产物可显示 git short SHA 和 changelog。
+- Docker Compose 显式固定容器名为 `ali-oss-server`，default network 实际名称为 `ali-oss`。
 - 已为动态 IP 限制和限流配置新增本地 JSON 文件持久化
 - 已创建 `.env.example` 与可运行 `.env`
 - 已补充 `pnpm build` 生产构建脚本

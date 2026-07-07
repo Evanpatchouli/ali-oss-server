@@ -1,6 +1,7 @@
 name: ali-oss
 services:
-  ali-oss-server:
+  server:
+    container_name: ali-oss-server
     build:
       context: .
       args:
@@ -12,3 +13,7 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+
+networks:
+  default:
+    name: ali-oss

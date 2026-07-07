@@ -35,6 +35,7 @@
 - 版本日志页展示根目录 `CHANGELOG.md`，由 Vite 构建期作为 `__APP_CHANGELOG__` 注入前端，避免运行时额外请求静态文件。
 - Changelog 维护规则沉淀为 `.agents/skills/maintain-changelog`，后续更新版本日志时优先按该 skill 的发布记录粒度执行。
 - Docker 镜像构建不安装 git；管理端 Vite 配置优先读取 `GIT_SHA`/`VITE_GIT_SHA`，其次直接解析复制进构建上下文的 `.git/HEAD`、refs 或 packed-refs。
+- Docker Compose 使用固定 `container_name` 和显式 default network name，避免默认生成 `<project>-<service>-1` 与 `<project>_default` 名称。
 
 ## 动态 IP 限制与限流
 

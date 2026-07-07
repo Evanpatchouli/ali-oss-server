@@ -1,13 +1,13 @@
 # 当前任务
 
 - 日期：2026-07-07
-- 需求：排查并修复 Docker Compose 构建后版本信息残缺的问题。
-- 状态：已完成，已通过 admin typecheck/build 和 `docker compose build ali-oss-server`，本次触碰文件未检测到 UTF-8 BOM。
-- 方案：Docker 构建阶段复制完整源码上下文，保留最小 `.git` 元数据和 `CHANGELOG.md`；Vite 版本注入优先读取构建参数，其次解析 `.git/HEAD`，最后回退到 git CLI / `unknown`。
+- 需求：固定 Docker Compose 网络名为 `ali-oss`，容器名为 `ali-oss-server`，不要默认后缀。
+- 状态：已完成，已通过 `docker compose config`，本次触碰文件未检测到 UTF-8 BOM。
+- 方案：在 `docker-compose.yml` 中显式设置 `container_name`，并为 default network 指定实际 `name`。
 
 ## 计划
 
-1. [x] 定位 Docker 构建阶段缺失 `CHANGELOG.md` 和 git 信息的原因。
-2. [x] 调整 Docker 构建上下文和 Vite git hash 读取逻辑。
-3. [x] 运行本地 admin typecheck/build。
-4. [x] 运行 Docker Compose 构建并检查镜像内版本元数据。
+1. [x] 复核当前 Compose 命名配置。
+2. [x] 固定容器名和 default network 名称。
+3. [x] 运行 `docker compose config` 验证最终名称。
+4. [x] 检查触碰文件 BOM。
