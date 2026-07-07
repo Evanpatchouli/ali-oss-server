@@ -1,4 +1,4 @@
-name: ali-oss-server
+name: ali-oss
 services:
   ali-oss-server:
     build:
