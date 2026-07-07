@@ -3,6 +3,7 @@ import { unlink } from "node:fs/promises";
 import Router from "@koa/router";
 import type { ScalarOrArrayFiles } from "koa-body";
 
+import { config } from "../config/env.js";
 import { authenticateAdmin } from "../middleware/authenticate-admin.js";
 import {
   listAdminBucketObjects,
@@ -37,6 +38,12 @@ type UploadedFile = {
  */
 export function createAdminRouter(): Router {
   const router = new Router({ prefix: "/api/admin" });
+
+  router.get("/upload-config", authenticateAdmin(), (ctx) => {
+    ctx.body = {
+      maxFileSizeBytes: config.oss.maxFileSizeBytes,
+    };
+  });
 
   router.post("/auth/login", (ctx) => {
     const body = readObjectBody(ctx);

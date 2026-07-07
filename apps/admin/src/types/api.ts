@@ -53,3 +53,7 @@ export type AdminUploadResponse = {
   url: string;
   bucket: string;
 };
+
+export type AdminUploadConfig = {
+  maxFileSizeBytes: number;
+};

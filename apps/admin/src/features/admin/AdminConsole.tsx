@@ -12,6 +12,7 @@ import {
   fetchAdminBucketObjects,
   fetchIpAllowlist,
   fetchRateLimit,
+  fetchUploadConfig,
   login,
   uploadAdminFile,
   updateIpAllowlist,
@@ -25,6 +26,7 @@ import { LoginScreen } from "../../components/LoginScreen";
 import { RateLimitPanel } from "../../components/RateLimitPanel";
 import { VersionLogPanel } from "../../components/VersionLogPanel";
 import type {
+  AdminUploadConfig,
   AdminUploadResponse,
   BucketObjectsResponse,
   IpAllowlistResponse,
@@ -95,6 +97,9 @@ export function AdminConsole() {
   const [uploadResult, setUploadResult] = useState<AdminUploadResponse | null>(
     null
   );
+  const [uploadConfig, setUploadConfig] = useState<AdminUploadConfig | null>(
+    null
+  );
 
   useEffect(() => {
     if (!session) {
@@ -102,6 +107,9 @@ export function AdminConsole() {
     }
 
     void refreshDashboard(session.token);
+    void fetchUploadConfig(session.token)
+      .then(setUploadConfig)
+      .catch(() => setUploadConfig(null));
   }, [session]);
 
   useEffect(() => {
@@ -636,6 +644,7 @@ export function AdminConsole() {
             <FileUploadPanel
               directory={uploadDirectory}
               filename={uploadFilename}
+              maxFileSizeBytes={uploadConfig?.maxFileSizeBytes ?? null}
               selectedFile={selectedUploadFile}
               uploadPending={uploadPending}
               uploadResult={uploadResult}

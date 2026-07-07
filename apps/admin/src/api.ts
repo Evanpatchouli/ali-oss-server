@@ -1,4 +1,5 @@
 import type {
+  AdminUploadConfig,
   AdminUploadResponse,
   BucketObjectsResponse,
   AdminLoginResponse,
@@ -9,6 +10,7 @@ import type {
 } from "./types/api";
 
 export type {
+  AdminUploadConfig,
   AdminUploadResponse,
   BucketObjectsResponse,
   AdminLoginResponse,
@@ -81,6 +83,16 @@ export async function updateRateLimit(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchUploadConfig(
+  token: string
+): Promise<AdminUploadConfig> {
+  return request<AdminUploadConfig>("/api/admin/upload-config", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
 }
 

@@ -21,6 +21,7 @@ import type { AdminUploadResponse } from "../types/api";
 type FileUploadPanelProps = {
   directory: string;
   filename: string;
+  maxFileSizeBytes: number | null;
   selectedFile: File | null;
   uploadPending: boolean;
   uploadResult: AdminUploadResponse | null;
@@ -35,6 +36,7 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
   const {
     directory,
     filename,
+    maxFileSizeBytes,
     selectedFile,
     uploadPending,
     uploadResult,
@@ -46,6 +48,10 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
   } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const imagePreviewUrl = useImagePreviewUrl(selectedFile);
+  const fileOversized =
+    maxFileSizeBytes != null &&
+    selectedFile != null &&
+    selectedFile.size > maxFileSizeBytes;
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -62,6 +68,9 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
         <Typography sx={{ mt: 1, color: "text.secondary" }}>
           此入口仅管理员可用。目录和目标文件名会组合成 OSS
           对象路径，目录为空时直接上传到 Bucket 根路径。
+          {maxFileSizeBytes != null
+            ? `最大上传大小：${formatFileSize(maxFileSizeBytes)}。`
+            : null}
         </Typography>
       </Box>
 
@@ -162,12 +171,22 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
                 <FileTypeIcon file={selectedFile} />
               )}
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                <Chip label={`${formatFileSize(selectedFile.size)}`} />
+                <Chip
+                  color={fileOversized ? "error" : undefined}
+                  label={`${formatFileSize(selectedFile.size)}`}
+                />
                 <Chip
                   label={selectedFile.type || "未知类型"}
                   variant="outlined"
                 />
               </Stack>
+
+              {fileOversized ? (
+                <Alert severity="error" sx={{ mt: 1.5 }}>
+                  文件大小超出限制（上限 {formatFileSize(maxFileSizeBytes!)}
+                  ，当前文件 {formatFileSize(selectedFile.size)}）。
+                </Alert>
+              ) : null}
             </Stack>
           ) : (
             <Typography sx={{ color: "text.secondary" }}>
@@ -210,7 +229,12 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
           <Button
             variant="contained"
             onClick={onUpload}
-            disabled={uploadPending || !filename.trim() || !selectedFile}
+            disabled={
+              uploadPending ||
+              !filename.trim() ||
+              !selectedFile ||
+              fileOversized
+            }
           >
             {uploadPending ? "上传中..." : "上传文件"}
           </Button>
