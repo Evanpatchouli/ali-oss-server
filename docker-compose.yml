@@ -2,6 +2,8 @@ services:
   ali-oss-server:
     build:
       context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-}
     env_file:
       - .env
     ports:

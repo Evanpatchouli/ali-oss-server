@@ -34,6 +34,7 @@
 - 管理端版本信息在 Vite 构建期注入，来源为 admin `package.json` 版本号、当前 git short SHA 和构建时间；UI 只展示短版本，完整构建时间放在版本 Chip 的 title 中。
 - 版本日志页展示根目录 `CHANGELOG.md`，由 Vite 构建期作为 `__APP_CHANGELOG__` 注入前端，避免运行时额外请求静态文件。
 - Changelog 维护规则沉淀为 `.agents/skills/maintain-changelog`，后续更新版本日志时优先按该 skill 的发布记录粒度执行。
+- Docker 镜像构建不安装 git；管理端 Vite 配置优先读取 `GIT_SHA`/`VITE_GIT_SHA`，其次直接解析复制进构建上下文的 `.git/HEAD`、refs 或 packed-refs。
 
 ## 动态 IP 限制与限流
 

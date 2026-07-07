@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { env } from "node:process";
 
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -60,6 +61,16 @@ function createVersionMetadata() {
 }
 
 function readGitHash(): string {
+  const envGitHash = normalizeGitHash(env.VITE_GIT_SHA ?? env.GIT_SHA ?? "");
+  if (envGitHash) {
+    return envGitHash;
+  }
+
+  const gitDirectoryHash = readGitHashFromDirectory();
+  if (gitDirectoryHash) {
+    return gitDirectoryHash;
+  }
+
   try {
     return execSync("git rev-parse --short HEAD", {
       cwd: new URL("../..", import.meta.url),
@@ -69,6 +80,70 @@ function readGitHash(): string {
   } catch {
     return "unknown";
   }
+}
+
+function readGitHashFromDirectory(): string | null {
+  try {
+    const head = readFileSync(
+      new URL("../../.git/HEAD", import.meta.url),
+      "utf8"
+    ).trim();
+    if (!head.startsWith("ref:")) {
+      return normalizeGitHash(head);
+    }
+
+    const ref = head.slice("ref:".length).trim();
+    const refHash = readGitRef(ref);
+    if (refHash) {
+      return refHash;
+    }
+
+    return readPackedGitRef(ref);
+  } catch {
+    return null;
+  }
+}
+
+function readGitRef(ref: string): string | null {
+  try {
+    return normalizeGitHash(
+      readFileSync(new URL(`../../.git/${ref}`, import.meta.url), "utf8")
+    );
+  } catch {
+    return null;
+  }
+}
+
+function readPackedGitRef(ref: string): string | null {
+  try {
+    const packedRefs = readFileSync(
+      new URL("../../.git/packed-refs", import.meta.url),
+      "utf8"
+    );
+    for (const line of packedRefs.split(/\r?\n/u)) {
+      if (line.startsWith("#") || line.startsWith("^")) {
+        continue;
+      }
+
+      const [hash, name] = line.trim().split(/\s+/u);
+      if (name === ref) {
+        return normalizeGitHash(hash);
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function normalizeGitHash(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized || normalized === "unknown") {
+    return null;
+  }
+
+  return normalized.slice(0, 7);
 }
 
 function readChangelog(): string {

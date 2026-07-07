@@ -42,7 +42,7 @@ const adminTabs = [
   { path: "/rate-limit", label: "接口限流" },
   { path: "/bucket-objects", label: "Bucket 查询" },
   { path: "/upload", label: "文件上传" },
-  { path: "/version-log", label: "版本信息" },
+  { path: "/version-log", label: "版本日志" },
 ] as const;
 
 const defaultBucketMaxKeys = "10";

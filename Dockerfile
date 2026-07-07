@@ -13,10 +13,10 @@ RUN pnpm install --frozen-lockfile --filter @ali-oss-server/admin --filter @ali-
 
 FROM deps AS build
 
-COPY apps/server ./apps/server
-COPY apps/admin ./apps/admin
-COPY .env.example ./
-COPY README.md ./
+ARG GIT_SHA
+ENV VITE_GIT_SHA=${GIT_SHA}
+
+COPY . ./
 RUN pnpm build:app
 
 FROM base AS runtime

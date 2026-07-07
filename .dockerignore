@@ -4,6 +4,11 @@ node_modules
 **/.vite-temp
 dist
 .env
-.git
+.git/*
+!.git/HEAD
+!.git/refs
+!.git/refs/**
+!.git/packed-refs
 .agents
+data
 apps/*/dist
