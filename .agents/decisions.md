@@ -32,6 +32,8 @@
 - Bucket 查询页将 `prefix` 放入 `/admin/bucket-objects/*` 动态路径，将 `maxKeys` 放入 URL 查询参数，便于复制和恢复查询条件。
 - Bucket 查询页进入时按 URL 条件自动加载数据；前缀输入不逐字触发查询，避免编辑过程产生多次请求。
 - 管理端版本信息在 Vite 构建期注入，来源为 admin `package.json` 版本号、当前 git short SHA 和构建时间；UI 只展示短版本，完整构建时间放在版本 Chip 的 title 中。
+- 版本日志页展示根目录 `CHANGELOG.md`，由 Vite 构建期作为 `__APP_CHANGELOG__` 注入前端，避免运行时额外请求静态文件。
+- Changelog 维护规则沉淀为 `.agents/skills/maintain-changelog`，后续更新版本日志时优先按该 skill 的发布记录粒度执行。
 
 ## 动态 IP 限制与限流
 

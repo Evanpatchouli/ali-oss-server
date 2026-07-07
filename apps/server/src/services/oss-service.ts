@@ -102,9 +102,10 @@ export async function listAdminBucketObjects(input: {
     ...(delimiter ? { delimiter } : {}),
     ...(continuationToken ? { "continuation-token": continuationToken } : {}),
   };
-  const result = (await client.listV2(
-    listQuery
-  )) as unknown as Record<string, unknown>;
+  const result = (await client.listV2(listQuery)) as unknown as Record<
+    string,
+    unknown
+  >;
 
   return {
     bucket: config.oss.bucket,

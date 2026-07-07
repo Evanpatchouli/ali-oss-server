@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Changelog"
+  short_description: "维护项目发布日志与版本记录规则。"
+  default_prompt: "Use $maintain-changelog to update CHANGELOG.md for the next release."

@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+declare const __APP_CHANGELOG__: string;
 declare const __APP_NAME__: string;
 declare const __APP_VERSION__: {
   version: string;

@@ -23,6 +23,7 @@ import { FileUploadPanel } from "../../components/FileUploadPanel";
 import { IpAllowlistPanel } from "../../components/IpAllowlistPanel";
 import { LoginScreen } from "../../components/LoginScreen";
 import { RateLimitPanel } from "../../components/RateLimitPanel";
+import { VersionLogPanel } from "../../components/VersionLogPanel";
 import type {
   AdminUploadResponse,
   BucketObjectsResponse,
@@ -41,6 +42,7 @@ const adminTabs = [
   { path: "/rate-limit", label: "接口限流" },
   { path: "/bucket-objects", label: "Bucket 查询" },
   { path: "/upload", label: "文件上传" },
+  { path: "/version-log", label: "版本信息" },
 ] as const;
 
 const defaultBucketMaxKeys = "10";
@@ -651,6 +653,7 @@ export function AdminConsole() {
             />
           }
         />
+        <Route path="version-log" element={<VersionLogPanel />} />
         <Route path="*" element={<Navigate to={adminTabs[0].path} replace />} />
       </Routes>
     </AdminShell>

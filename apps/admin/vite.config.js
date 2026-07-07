@@ -24,8 +24,10 @@ function createVersionMetadata() {
         gitHash,
     };
     const appName = packageJson.name ?? "admin";
+    const changelog = readChangelog();
     return {
         defines: {
+            __APP_CHANGELOG__: JSON.stringify(changelog),
             __APP_NAME__: JSON.stringify(appName),
             __APP_VERSION__: JSON.stringify(appVersion),
             __GIT_SHA__: JSON.stringify(gitHash),
@@ -59,5 +61,13 @@ function readGitHash() {
     }
     catch {
         return "unknown";
+    }
+}
+function readChangelog() {
+    try {
+        return readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8");
+    }
+    catch {
+        return "";
     }
 }
