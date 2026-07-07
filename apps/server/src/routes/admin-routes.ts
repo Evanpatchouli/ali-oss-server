@@ -5,6 +5,7 @@ import type { ScalarOrArrayFiles } from "koa-body";
 
 import { config } from "../config/env.js";
 import { authenticateAdmin } from "../middleware/authenticate-admin.js";
+import { getAuthClients } from "../services/auth-client-service.js";
 import {
   listAdminBucketObjects,
   uploadAdminLocalFile,
@@ -19,6 +20,7 @@ import {
   type RouteRateLimitRule,
 } from "../services/rate-limit-service.js";
 import {
+  updatePersistedAuthClients,
   updatePersistedIpAllowlist,
   updatePersistedRateLimitSettings,
 } from "../services/runtime-state-service.js";
@@ -59,6 +61,58 @@ export function createAdminRouter(): Router {
       expiresAt: token.expiresAt,
       username: admin.username,
     };
+  });
+
+  router.get("/auth-clients", authenticateAdmin(), (ctx) => {
+    ctx.body = buildAuthClientsResponse();
+  });
+
+  router.post("/auth-clients", authenticateAdmin(), async (ctx) => {
+    const body = readObjectBody(ctx);
+    const clientId = readRequiredStringField(body, "clientId");
+    const clientSecret = readRequiredStringField(body, "clientSecret");
+    const clients = await updatePersistedAuthClients([
+      ...getAuthClients(),
+      { clientId, clientSecret },
+    ]);
+
+    ctx.status = 201;
+    ctx.body = buildAuthClientsResponse(clients);
+  });
+
+  router.put("/auth-clients/:clientId", authenticateAdmin(), async (ctx) => {
+    const clientId = readNonEmptyString(ctx.params.clientId, "clientId");
+    const body = readObjectBody(ctx);
+    const clientSecret = readRequiredStringField(body, "clientSecret");
+    const currentClients = getAuthClients();
+
+    if (!currentClients.some((client) => client.clientId === clientId)) {
+      throw badRequest("AUTH_CLIENT_NOT_FOUND", "auth client was not found");
+    }
+
+    const clients = await updatePersistedAuthClients(
+      currentClients.map((client) =>
+        client.clientId === clientId ? { ...client, clientSecret } : client
+      )
+    );
+
+    ctx.body = buildAuthClientsResponse(clients);
+  });
+
+  router.delete("/auth-clients/:clientId", authenticateAdmin(), async (ctx) => {
+    const clientId = readNonEmptyString(ctx.params.clientId, "clientId");
+    const currentClients = getAuthClients();
+    const nextClients = currentClients.filter(
+      (client) => client.clientId !== clientId
+    );
+
+    if (nextClients.length === currentClients.length) {
+      throw badRequest("AUTH_CLIENT_NOT_FOUND", "auth client was not found");
+    }
+
+    const clients = await updatePersistedAuthClients(nextClients);
+
+    ctx.body = buildAuthClientsResponse(clients);
   });
 
   router.post("/oss/upload", authenticateAdmin(), async (ctx) => {
@@ -127,6 +181,14 @@ export function createAdminRouter(): Router {
   });
 
   return router;
+}
+
+function buildAuthClientsResponse(
+  clients = getAuthClients()
+): { clients: Array<{ clientId: string }> } {
+  return {
+    clients: clients.map((client) => ({ clientId: client.clientId })),
+  };
 }
 
 function readStringArray(value: unknown, fieldName: string): string[] {

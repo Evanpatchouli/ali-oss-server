@@ -2,7 +2,7 @@
 
 ## 多调用方凭证与服务端 TOKEN
 
-- 使用 `.env` 中的 `AUTH_CLIENTS` 维护多组 `clientId` / `clientSecret`。
+- 使用管理端维护多组 `clientId` / `clientSecret`，不再读取 `.env` 中的调用方凭证。
 - `POST /api/auth/token` 只负责校验调用方签名并签发服务端 TOKEN。
 - TOKEN 接口通过请求头 `x-client-id` 获取调用方标识，请求体只接收 `{ "sign": string }`。
 - `sign` 使用 `HMAC-SHA256(clientId, clientSecret)` 生成，输出编码为 `base64url`，服务端按 `clientId` 查找配置中的 `clientSecret` 后重新计算并做常量时间比对。
@@ -47,6 +47,16 @@
 - 动态 IP 限制和限流配置持久化到本地 `data/runtime-state.json`，不引入数据库。
 - 配置写入采用“先写临时文件，再 rename 覆盖”的原子替换方式，避免半写入损坏。
 - 启动读取持久化文件失败时仅记录日志并回退默认空配置，不阻塞服务启动。
+
+## 动态 Client 管理
+
+- `.env` 不再配置 `AUTH_CLIENTS`，调用方凭证只通过管理端维护。
+- 管理端维护的 client 凭证与 IP 限制、限流规则一起持久化到 `data/runtime-state.json`。
+- 持久化文件存在 `authClients` 时，服务启动使用该运行态 client 列表；没有运行态文件或旧版状态文件没有 `authClients` 时，client 列表为空。
+- `/api/auth/token` 查询运行态 client service，确保新增、删除、重置密钥立即生效。
+- 业务 bearer token 校验会检查当前 client 是否仍存在；新签发 token 会携带 clientSecret 指纹，用于在重置密钥后拒绝旧凭证签发的 token。
+- 管理端列表只返回 `clientId`，不回显 `clientSecret`；密钥只在新增或重置时提交。
+- 至少保留一个 client，避免管理端误删全部调用方导致业务 token 无法签发。
 
 ## 生产构建与容器化
 

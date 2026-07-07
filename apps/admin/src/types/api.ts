@@ -11,6 +11,14 @@ export type IpAllowlistResponse = {
   enabled: boolean;
 };
 
+export type AuthClientSummary = {
+  clientId: string;
+};
+
+export type AuthClientsResponse = {
+  clients: AuthClientSummary[];
+};
+
 export type RateLimitRule = {
   windowMs: number;
   maxRequests: number;

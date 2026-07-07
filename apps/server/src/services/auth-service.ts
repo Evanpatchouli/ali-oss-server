@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { config, type AuthClient } from "../config/env.js";
+import type { AuthClient } from "../config/env.js";
+import { getAuthClient } from "./auth-client-service.js";
 import { unauthorized } from "../utils/http-error.js";
 
 /**
@@ -10,7 +11,7 @@ export function authenticateClient(
   clientId: string,
   receivedSign: string
 ): AuthClient {
-  const client = config.auth.clients.find((item) => item.clientId === clientId);
+  const client = getAuthClient(clientId);
   if (!client) {
     throw unauthorized(
       "INVALID_CLIENT_CREDENTIALS",

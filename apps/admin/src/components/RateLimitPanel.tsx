@@ -26,6 +26,7 @@ type RateLimitPanelProps = {
   pageLoading: boolean;
   routePreset: string;
   routeRules: EditableRouteRule[];
+  saveLoading: boolean;
   onAddCustomRoute: () => void;
   onAddPresetRoute: () => void;
   onGlobalEnabledChange: (value: boolean) => void;
@@ -46,6 +47,7 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
     pageLoading,
     routePreset,
     routeRules,
+    saveLoading,
     onAddCustomRoute,
     onAddPresetRoute,
     onGlobalEnabledChange,
@@ -215,7 +217,12 @@ export function RateLimitPanel(props: RateLimitPanelProps) {
         <Typography sx={{ color: "text.secondary" }}>
           当前共配置 {routeRules.length} 条接口级规则。
         </Typography>
-        <Button variant="contained" onClick={onSave} disabled={pageLoading}>
+        <Button
+          variant="contained"
+          onClick={onSave}
+          loading={saveLoading}
+          disabled={pageLoading}
+        >
           保存限流配置
         </Button>
       </Stack>

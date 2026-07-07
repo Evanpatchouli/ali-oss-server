@@ -1,6 +1,11 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import type { AuthClient } from "../config/env.js";
+import {
+  getAuthClients,
+  replaceAuthClients,
+} from "./auth-client-service.js";
 import { getAllowedIps, replaceAllowedIps } from "./ip-allowlist-service.js";
 import {
   getRateLimitSettings,
@@ -11,6 +16,7 @@ import {
 import { runtimeStateDirectory, runtimeStateFilePath } from "../utils/paths.js";
 
 type PersistedRuntimeState = {
+  authClients: AuthClient[];
   ipAllowlist: string[];
   rateLimit: {
     globalRule: RateLimitRule | null;
@@ -28,6 +34,7 @@ export async function initializeRuntimeState(): Promise<void> {
   }
 
   try {
+    replaceAuthClients(persistedState.authClients);
     replaceAllowedIps(persistedState.ipAllowlist);
     replaceRateLimitSettings(persistedState.rateLimit);
   } catch (error) {
@@ -35,11 +42,27 @@ export async function initializeRuntimeState(): Promise<void> {
       "Failed to apply persisted runtime state, falling back to defaults.",
       error
     );
+    replaceAuthClients([]);
     replaceAllowedIps([]);
     replaceRateLimitSettings({
       globalRule: null,
       routeRules: [],
     });
+  }
+}
+
+export async function updatePersistedAuthClients(
+  clients: AuthClient[]
+): Promise<AuthClient[]> {
+  const previousState = getRuntimeStateSnapshot();
+  const nextClients = replaceAuthClients(clients);
+
+  try {
+    await persistRuntimeState();
+    return nextClients;
+  } catch (error) {
+    restoreRuntimeState(previousState);
+    throw error;
   }
 }
 
@@ -75,6 +98,7 @@ export async function updatePersistedRateLimitSettings(input: {
 }
 
 function restoreRuntimeState(state: PersistedRuntimeState): void {
+  replaceAuthClients(state.authClients);
   replaceAllowedIps(state.ipAllowlist);
   replaceRateLimitSettings(state.rateLimit);
 }
@@ -83,6 +107,7 @@ function getRuntimeStateSnapshot(): PersistedRuntimeState {
   const rateLimitSettings = getRateLimitSettings();
 
   return {
+    authClients: getAuthClients(),
     ipAllowlist: getAllowedIps(),
     rateLimit: {
       globalRule: rateLimitSettings.globalRule,
@@ -127,13 +152,39 @@ function normalizePersistedRuntimeState(value: unknown): PersistedRuntimeState {
     throw new Error("Persisted runtime state must be an object");
   }
 
+  const authClients =
+    value.authClients === undefined
+      ? []
+      : readAuthClients(value.authClients);
   const ipAllowlist = readIpAllowlist(value.ipAllowlist);
   const rateLimit = readRateLimit(value.rateLimit);
 
   return {
+    authClients,
     ipAllowlist,
     rateLimit,
   };
+}
+
+function readAuthClients(value: unknown): AuthClient[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Persisted authClients must be an array");
+  }
+
+  return value.map((item, index) => {
+    if (
+      !isRecord(item) ||
+      typeof item.clientId !== "string" ||
+      typeof item.clientSecret !== "string"
+    ) {
+      throw new Error(`Persisted authClients[${index}] is invalid`);
+    }
+
+    return {
+      clientId: item.clientId,
+      clientSecret: item.clientSecret,
+    };
+  });
 }
 
 function readIpAllowlist(value: unknown): string[] {

@@ -38,6 +38,10 @@
 - `POST /api/oss/upload-stream`
 - `DELETE /api/oss/object`
 - `POST /api/admin/auth/login`
+- `GET /api/admin/auth-clients`
+- `POST /api/admin/auth-clients`
+- `PUT /api/admin/auth-clients/:clientId`
+- `DELETE /api/admin/auth-clients/:clientId`
 - `GET /api/admin/oss/objects`
 - `POST /api/admin/oss/upload`
 - `GET /api/admin/ip-allowlist`
@@ -63,6 +67,7 @@ pnpm start
 - 生产环境管理端访问地址为 `http://localhost:9512/admin`
 - 管理端支持子路由直接访问，例如 `http://localhost:9512/admin/rate-limit`
 - Bucket 查询可通过 URL 带入前缀和每页数量，例如 `http://localhost:9512/admin/bucket-objects/uploads/?maxKeys=50`
+- 管理端顶部概览区域已重排为标题说明 + 右侧双行状态 Chip，减少原先 Chip 堆叠的拥挤感；当前 Vite dev server 已启动在 `http://127.0.0.1:5174/admin`。
 
 ## Docker Compose 运行
 
@@ -76,7 +81,11 @@ docker compose up -d --build
 
 - `.env` 中已配置真实 OSS AccessKey 和 Bucket。
 - Docker Compose 会读取 `.env`，不要将 `.env` 提交到仓库。
-- `AUTH_CLIENTS` 当前只有 demo 调用方，可按 JSON 数组追加更多调用方。
+- `.env` 不再配置 `AUTH_CLIENTS`；调用方 client 只通过管理端维护，保存后写入 `data/runtime-state.json` 并立即影响 `/api/auth/token`。
+- 首次部署时 client 列表为空，需要先登录管理端创建 client。
+- `data/runtime-state.json` 会包含明文 `clientSecret`，部署时需要保护 `data` 目录读写权限。
+- 管理端 client 列表不回显密钥，支持新增 client、删除 client、重置 clientSecret，且至少保留一个 client。
+- 业务 bearer token 校验会检查当前 client 是否仍存在；新签发 token 会携带 clientSecret 指纹，重置密钥后旧凭证签发的 token 会被拒绝。
 - `POST /api/auth/token` 使用请求头 `x-client-id` 和请求体 `{ "sign": string }`，不再接收明文 `clientSecret`。
 - `sign` 生成规则为 `HMAC-SHA256(clientId, clientSecret)`，输出 `base64url`。
 - TOKEN 使用 HMAC SHA-256 签名，载荷包含 `clientId`、签发时间、过期时间和 token id。
@@ -91,7 +100,7 @@ docker compose up -d --build
 - 流式上传接口会先检查 `Content-Length`，并在服务端用计数流兜底限制文件大小；超限时返回 `413 FILE_TOO_LARGE`。
 - 动态 IP 限制使用内存级 allowlist；列表为空时不限制访问 IP。
 - 接口限流支持全局规则和接口级规则，按来源 IP 计数，两者都未设置时不限流。
-- 动态 IP 限制和限流配置会持久化到根目录 `data/runtime-state.json`；Docker Compose 已挂载 `./data:/app/data`。
+- 动态 client、动态 IP 限制和限流配置会持久化到根目录 `data/runtime-state.json`；Docker Compose 已挂载 `./data:/app/data`。
 - 后端在生产环境通过 `/admin` 托管 `apps/admin/dist` 静态资源。
 - 后端对无扩展名的 `/admin/*` 请求回退到 `index.html`，支持管理端 BrowserRouter 子路由刷新。
 - 删除接口同样按当前 `clientId` 目录收口，传相对路径或接口返回的完整 `clientId/objectKey` 都可删除当前调用方目录下的对象。

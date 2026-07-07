@@ -9,16 +9,21 @@ import {
 } from "react-router-dom";
 
 import {
+  createAuthClient,
+  deleteAuthClient,
   fetchAdminBucketObjects,
+  fetchAuthClients,
   fetchIpAllowlist,
   fetchRateLimit,
   fetchUploadConfig,
   login,
   uploadAdminFile,
+  updateAuthClientSecret,
   updateIpAllowlist,
   updateRateLimit,
 } from "../../api";
 import { AdminShell } from "../../components/AdminShell";
+import { AuthClientsPanel } from "../../components/AuthClientsPanel";
 import { BucketObjectsPanel } from "../../components/BucketObjectsPanel";
 import { FileUploadPanel } from "../../components/FileUploadPanel";
 import { IpAllowlistPanel } from "../../components/IpAllowlistPanel";
@@ -28,11 +33,16 @@ import { VersionLogPanel } from "../../components/VersionLogPanel";
 import type {
   AdminUploadConfig,
   AdminUploadResponse,
+  AuthClientsResponse,
   BucketObjectsResponse,
   IpAllowlistResponse,
   RateLimitResponse,
 } from "../../types/api";
-import type { EditableRouteRule, Session } from "../../types/admin";
+import type {
+  BucketListingTarget,
+  EditableRouteRule,
+  Session,
+} from "../../types/admin";
 import {
   clearStoredSession,
   readStoredSession,
@@ -41,6 +51,7 @@ import {
 
 const adminTabs = [
   { path: "/ip-allowlist", label: "动态 IP 限制" },
+  { path: "/auth-clients", label: "Client 管理" },
   { path: "/rate-limit", label: "接口限流" },
   { path: "/bucket-objects", label: "Bucket 查询" },
   { path: "/upload", label: "文件上传" },
@@ -48,6 +59,14 @@ const adminTabs = [
 ] as const;
 
 const defaultBucketMaxKeys = "10";
+
+type PageLoadingTarget =
+  | "refresh"
+  | "saveIpAllowlist"
+  | "addAuthClient"
+  | "resetAuthClientSecret"
+  | "saveRateLimit"
+  | { type: "removeAuthClient"; clientId: string };
 
 export function AdminConsole() {
   const location = useLocation();
@@ -60,7 +79,8 @@ export function AdminConsole() {
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginPending, setLoginPending] = useState(false);
-  const [pageLoading, setPageLoading] = useState(false);
+  const [pageLoadingTarget, setPageLoadingTarget] =
+    useState<PageLoadingTarget | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -69,6 +89,13 @@ export function AdminConsole() {
     ips: [],
     enabled: false,
   });
+  const [authClients, setAuthClients] = useState<
+    AuthClientsResponse["clients"]
+  >([]);
+  const [clientIdDraft, setClientIdDraft] = useState("");
+  const [clientSecretDraft, setClientSecretDraft] = useState("");
+  const [resetClientId, setResetClientId] = useState<string | null>(null);
+  const [resetClientSecretDraft, setResetClientSecretDraft] = useState("");
   const [globalEnabled, setGlobalEnabled] = useState(false);
   const [globalWindowMs, setGlobalWindowMs] = useState("60000");
   const [globalMaxRequests, setGlobalMaxRequests] = useState("120");
@@ -84,6 +111,8 @@ export function AdminConsole() {
   const [bucketDelimiter, setBucketDelimiter] = useState("/");
   const [bucketMaxKeys, setBucketMaxKeys] = useState(routeBucketMaxKeys);
   const [bucketListingPending, setBucketListingPending] = useState(false);
+  const [bucketListingTarget, setBucketListingTarget] =
+    useState<BucketListingTarget | null>(null);
   const [bucketObjectsResult, setBucketObjectsResult] =
     useState<BucketObjectsResponse | null>(null);
   const [bucketPageTokens, setBucketPageTokens] = useState<string[]>([""]);
@@ -100,6 +129,8 @@ export function AdminConsole() {
   const [uploadConfig, setUploadConfig] = useState<AdminUploadConfig | null>(
     null
   );
+  const nextBucketListingTarget = useRef<BucketListingTarget | null>(null);
+  const pageLoading = pageLoadingTarget !== null;
 
   useEffect(() => {
     if (!session) {
@@ -142,9 +173,12 @@ export function AdminConsole() {
     }
 
     lastAutoBucketQueryKey.current = autoQueryKey;
+    const loadingTarget = nextBucketListingTarget.current ?? "search";
+    nextBucketListingTarget.current = null;
     void loadBucketObjects({
       continuationToken: undefined,
       delimiter: bucketDelimiter,
+      loadingTarget,
       pageIndex: 0,
       prefix: routeBucketPrefix,
       maxKeys: routeBucketMaxKeys,
@@ -175,21 +209,120 @@ export function AdminConsole() {
   const tab = activeTabIndex >= 0 ? activeTabIndex : 0;
 
   async function refreshDashboard(token: string) {
-    setPageLoading(true);
+    setPageLoadingTarget("refresh");
     setErrorMessage(null);
 
     try {
-      const [ipResponse, rateLimitResponse] = await Promise.all([
-        fetchIpAllowlist(token),
-        fetchRateLimit(token),
-      ]);
+      const [authClientsResponse, ipResponse, rateLimitResponse] =
+        await Promise.all([
+          fetchAuthClients(token),
+          fetchIpAllowlist(token),
+          fetchRateLimit(token),
+        ]);
+      applyAuthClientsState(authClientsResponse);
       applyIpState(ipResponse);
       applyRateLimitState(rateLimitResponse);
     } catch (error) {
       handleRequestError(error);
     } finally {
-      setPageLoading(false);
+      setPageLoadingTarget(null);
     }
+  }
+
+  async function handleAddAuthClient() {
+    if (!session) {
+      return;
+    }
+
+    const clientId = clientIdDraft.trim();
+    const clientSecret = clientSecretDraft.trim();
+    if (!clientId || !clientSecret) {
+      setErrorMessage("请输入 clientId 和 clientSecret。");
+      return;
+    }
+
+    setPageLoadingTarget("addAuthClient");
+    setErrorMessage(null);
+
+    try {
+      const response = await createAuthClient(session.token, {
+        clientId,
+        clientSecret,
+      });
+      applyAuthClientsState(response);
+      setClientIdDraft("");
+      setClientSecretDraft("");
+      setMessage(`Client 已新增：${clientId}`);
+    } catch (error) {
+      handleRequestError(error);
+    } finally {
+      setPageLoadingTarget(null);
+    }
+  }
+
+  async function handleResetAuthClientSecret() {
+    if (!session || !resetClientId) {
+      return;
+    }
+
+    const clientSecret = resetClientSecretDraft.trim();
+    if (!clientSecret) {
+      setErrorMessage("请输入新的 clientSecret。");
+      return;
+    }
+
+    setPageLoadingTarget("resetAuthClientSecret");
+    setErrorMessage(null);
+
+    try {
+      const response = await updateAuthClientSecret(
+        session.token,
+        resetClientId,
+        clientSecret
+      );
+      applyAuthClientsState(response);
+      setResetClientId(null);
+      setResetClientSecretDraft("");
+      setMessage(`Client 密钥已重置：${resetClientId}`);
+    } catch (error) {
+      handleRequestError(error);
+    } finally {
+      setPageLoadingTarget(null);
+    }
+  }
+
+  async function handleRemoveAuthClient(clientId: string) {
+    if (!session) {
+      return;
+    }
+
+    if (!window.confirm(`确认删除 client：${clientId}？`)) {
+      return;
+    }
+
+    setPageLoadingTarget({ type: "removeAuthClient", clientId });
+    setErrorMessage(null);
+
+    try {
+      const response = await deleteAuthClient(session.token, clientId);
+      applyAuthClientsState(response);
+      setMessage(`Client 已删除：${clientId}`);
+    } catch (error) {
+      handleRequestError(error);
+    } finally {
+      setPageLoadingTarget(null);
+    }
+  }
+
+  function handleStartAuthClientReset(clientId: string) {
+    setResetClientId(clientId);
+    setResetClientSecretDraft("");
+    setErrorMessage(null);
+  }
+
+  function handleCancelAuthClientReset() {
+    setResetClientId(null);
+    setResetClientSecretDraft("");
   }
 
   async function handleLogin() {
@@ -220,7 +353,7 @@ export function AdminConsole() {
       return;
     }
 
-    setPageLoading(true);
+    setPageLoadingTarget("saveIpAllowlist");
     setErrorMessage(null);
 
     try {
@@ -234,7 +367,7 @@ export function AdminConsole() {
     } catch (error) {
       handleRequestError(error);
     } finally {
-      setPageLoading(false);
+      setPageLoadingTarget(null);
     }
   }
 
@@ -243,7 +376,7 @@ export function AdminConsole() {
       return;
     }
 
-    setPageLoading(true);
+    setPageLoadingTarget("saveRateLimit");
     setErrorMessage(null);
 
     try {
@@ -265,7 +398,7 @@ export function AdminConsole() {
     } catch (error) {
       handleRequestError(error);
     } finally {
-      setPageLoading(false);
+      setPageLoadingTarget(null);
     }
   }
 
@@ -309,6 +442,7 @@ export function AdminConsole() {
       await loadBucketObjects({
         continuationToken: undefined,
         delimiter: bucketDelimiter,
+        loadingTarget: "search",
         pageIndex: 0,
         prefix: bucketPrefix,
         maxKeys: bucketMaxKeys,
@@ -317,6 +451,7 @@ export function AdminConsole() {
       return;
     }
 
+    nextBucketListingTarget.current = "search";
     navigate(nextLocation);
   }
 
@@ -334,6 +469,7 @@ export function AdminConsole() {
     });
     await loadBucketObjects({
       continuationToken,
+      loadingTarget: "next",
       pageIndex: nextPageIndex,
       prefix: bucketPrefix,
       delimiter: bucketDelimiter,
@@ -349,6 +485,7 @@ export function AdminConsole() {
     const previousPageIndex = bucketPageIndex - 1;
     await loadBucketObjects({
       continuationToken: bucketPageTokens[previousPageIndex] || undefined,
+      loadingTarget: "previous",
       pageIndex: previousPageIndex,
       prefix: bucketPrefix,
       delimiter: bucketDelimiter,
@@ -357,12 +494,14 @@ export function AdminConsole() {
   }
 
   async function handleOpenBucketPrefix(prefix: string) {
+    nextBucketListingTarget.current = { type: "prefix", prefix };
     navigateToBucketObjects(prefix, bucketMaxKeys);
   }
 
   async function loadBucketObjects(input: {
     continuationToken?: string;
     delimiter: string;
+    loadingTarget?: BucketListingTarget;
     maxKeys: string;
     pageIndex: number;
     prefix: string;
@@ -385,6 +524,7 @@ export function AdminConsole() {
     }
 
     setBucketListingPending(true);
+    setBucketListingTarget(input.loadingTarget ?? "search");
     setErrorMessage(null);
 
     try {
@@ -403,6 +543,7 @@ export function AdminConsole() {
       handleRequestError(error);
     } finally {
       setBucketListingPending(false);
+      setBucketListingTarget(null);
     }
   }
 
@@ -476,6 +617,9 @@ export function AdminConsole() {
     setSession(null);
     setRouteRules([]);
     setKnownRoutes([]);
+    setPageLoadingTarget(null);
+    setBucketListingTarget(null);
+    nextBucketListingTarget.current = null;
     setBucketPrefix("");
     setBucketDelimiter("/");
     setBucketMaxKeys(defaultBucketMaxKeys);
@@ -488,7 +632,23 @@ export function AdminConsole() {
     setUploadResult(null);
     setIpDraft("");
     setIpStatus({ ips: [], enabled: false });
+    setAuthClients([]);
+    setClientIdDraft("");
+    setClientSecretDraft("");
+    setResetClientId(null);
+    setResetClientSecretDraft("");
     setMessage("已退出登录。");
+  }
+
+  function applyAuthClientsState(response: AuthClientsResponse) {
+    const nextClientIds = new Set(
+      response.clients.map((client) => client.clientId)
+    );
+
+    setAuthClients(response.clients);
+    setResetClientId((current) =>
+      current && nextClientIds.has(current) ? current : null
+    );
   }
 
   function applyIpState(response: IpAllowlistResponse) {
@@ -549,11 +709,13 @@ export function AdminConsole() {
 
   return (
     <AdminShell
+      authClientCount={authClients.length}
       errorMessage={errorMessage}
       globalEnabled={globalEnabled}
       ipStatus={ipStatus}
       message={message}
       pageLoading={pageLoading}
+      refreshLoading={pageLoadingTarget === "refresh"}
       session={session}
       tab={tab}
       tabs={adminTabs}
@@ -572,8 +734,35 @@ export function AdminConsole() {
               activeIpCount={activeIpCount}
               draft={ipDraft}
               pageLoading={pageLoading}
+              saveLoading={pageLoadingTarget === "saveIpAllowlist"}
               onChange={setIpDraft}
               onSave={() => void handleSaveIpAllowlist()}
+            />
+          }
+        />
+        <Route
+          path="auth-clients"
+          element={
+            <AuthClientsPanel
+              clientIdDraft={clientIdDraft}
+              clientSecretDraft={clientSecretDraft}
+              clients={authClients}
+              addLoading={pageLoadingTarget === "addAuthClient"}
+              pageLoading={pageLoading}
+              removeLoadingClientId={getRemoveAuthClientId(pageLoadingTarget)}
+              resetClientId={resetClientId}
+              resetClientSecretDraft={resetClientSecretDraft}
+              resetSecretLoading={
+                pageLoadingTarget === "resetAuthClientSecret"
+              }
+              onAdd={() => void handleAddAuthClient()}
+              onCancelReset={handleCancelAuthClientReset}
+              onClientIdDraftChange={setClientIdDraft}
+              onClientSecretDraftChange={setClientSecretDraft}
+              onRemove={(clientId) => void handleRemoveAuthClient(clientId)}
+              onResetClientSecretDraftChange={setResetClientSecretDraft}
+              onSaveReset={() => void handleResetAuthClientSecret()}
+              onStartReset={handleStartAuthClientReset}
             />
           }
         />
@@ -588,6 +777,7 @@ export function AdminConsole() {
               pageLoading={pageLoading}
               routePreset={routePreset}
               routeRules={routeRules}
+              saveLoading={pageLoadingTarget === "saveRateLimit"}
               onAddCustomRoute={handleAddCustomRoute}
               onAddPresetRoute={handleAddPresetRoute}
               onGlobalEnabledChange={setGlobalEnabled}
@@ -608,6 +798,7 @@ export function AdminConsole() {
               canGoNext={Boolean(bucketObjectsResult?.nextContinuationToken)}
               delimiter={bucketDelimiter}
               listingPending={bucketListingPending}
+              listingTarget={bucketListingTarget}
               maxKeys={bucketMaxKeys}
               pageIndex={bucketPageIndex}
               prefix={bucketPrefix}
@@ -713,4 +904,14 @@ function decodePathValue(value: string): string {
   } catch {
     return value;
   }
+}
+
+function getRemoveAuthClientId(
+  target: PageLoadingTarget | null
+): string | null {
+  if (typeof target !== "object" || target === null) {
+    return null;
+  }
+
+  return target.type === "removeAuthClient" ? target.clientId : null;
 }

@@ -16,10 +16,12 @@ import {
 } from "@mui/material";
 
 import type { BucketObjectsResponse } from "../types/api";
+import type { BucketListingTarget } from "../types/admin";
 
 type BucketObjectsPanelProps = {
   delimiter: string;
   listingPending: boolean;
+  listingTarget: BucketListingTarget | null;
   maxKeys: string;
   pageIndex: number;
   prefix: string;
@@ -39,6 +41,7 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
   const {
     delimiter,
     listingPending,
+    listingTarget,
     maxKeys,
     pageIndex,
     prefix,
@@ -105,10 +108,11 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
         <Button
           variant="contained"
           onClick={onSearch}
+          loading={listingTarget === "search"}
           disabled={listingPending}
           sx={{ minWidth: 108 }}
         >
-          {listingPending ? "查询中..." : "查询"}
+          查询
         </Button>
       </Stack>
 
@@ -150,6 +154,8 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
                       <Button
                         variant="text"
                         onClick={() => onOpenPrefix(item)}
+                        loading={isPrefixLoading(listingTarget, item)}
+                        disabled={listingPending}
                         sx={{
                           justifyContent: "flex-start",
                           maxWidth: 520,
@@ -221,6 +227,7 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
               <Button
                 variant="outlined"
                 onClick={onPreviousPage}
+                loading={listingTarget === "previous"}
                 disabled={listingPending || !canGoBack}
               >
                 上一页
@@ -228,6 +235,7 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
               <Button
                 variant="outlined"
                 onClick={onNextPage}
+                loading={listingTarget === "next"}
                 disabled={listingPending || !canGoNext}
               >
                 下一页
@@ -241,6 +249,18 @@ export function BucketObjectsPanel(props: BucketObjectsPanelProps) {
         </Typography>
       )}
     </Stack>
+  );
+}
+
+function isPrefixLoading(
+  listingTarget: BucketListingTarget | null,
+  prefix: string
+): boolean {
+  return (
+    typeof listingTarget === "object" &&
+    listingTarget !== null &&
+    listingTarget.type === "prefix" &&
+    listingTarget.prefix === prefix
   );
 }
 

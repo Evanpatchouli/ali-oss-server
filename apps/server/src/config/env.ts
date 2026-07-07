@@ -13,7 +13,6 @@ export type AuthClient = {
 type AppConfig = {
   port: number;
   auth: {
-    clients: AuthClient[];
     tokenSecret: string;
     tokenExpiresInSeconds: number;
   };
@@ -73,60 +72,6 @@ function parseBoolean(name: string, fallback: boolean): boolean {
   throw badRequest("ENV_INVALID", `${name} must be true or false`);
 }
 
-function parseAuthClients(rawValue: string): AuthClient[] {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(rawValue);
-  } catch {
-    throw badRequest("ENV_INVALID", "AUTH_CLIENTS must be a valid JSON array");
-  }
-
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    throw badRequest(
-      "ENV_INVALID",
-      "AUTH_CLIENTS must contain at least one client"
-    );
-  }
-
-  const seenClientIds = new Set<string>();
-  return parsed.map((item, index) => {
-    if (!isRecord(item)) {
-      throw badRequest(
-        "ENV_INVALID",
-        `AUTH_CLIENTS[${index}] must be an object`
-      );
-    }
-
-    const clientId = readString(item.clientId);
-    const clientSecret = readString(item.clientSecret);
-    if (!clientId || !clientSecret) {
-      throw badRequest(
-        "ENV_INVALID",
-        `AUTH_CLIENTS[${index}] must include non-empty clientId and clientSecret`
-      );
-    }
-
-    if (seenClientIds.has(clientId)) {
-      throw badRequest(
-        "ENV_INVALID",
-        `Duplicate clientId in AUTH_CLIENTS: ${clientId}`
-      );
-    }
-
-    seenClientIds.add(clientId);
-    return { clientId, clientSecret };
-  });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" ? value.trim() : undefined;
-}
-
 const tokenSecret = requiredEnv("TOKEN_SECRET");
 if (tokenSecret.length < 16) {
   throw badRequest(
@@ -138,7 +83,6 @@ if (tokenSecret.length < 16) {
 export const config: AppConfig = {
   port: parsePositiveInt("PORT", 9512),
   auth: {
-    clients: parseAuthClients(requiredEnv("AUTH_CLIENTS")),
     tokenSecret,
     tokenExpiresInSeconds: parsePositiveInt("TOKEN_EXPIRES_IN_SECONDS", 7200),
   },

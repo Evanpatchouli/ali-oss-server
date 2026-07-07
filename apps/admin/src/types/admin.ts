@@ -9,3 +9,9 @@ export type Session = {
 export type EditableRouteRule = RouteRateLimitRule & {
   id: string;
 };
+
+export type BucketListingTarget =
+  | "search"
+  | "previous"
+  | "next"
+  | { type: "prefix"; prefix: string };

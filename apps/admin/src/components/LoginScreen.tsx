@@ -70,9 +70,10 @@ export function LoginScreen(props: LoginScreenProps) {
             variant="contained"
             size="large"
             onClick={onSubmit}
+            loading={loginPending}
             disabled={loginPending}
           >
-            {loginPending ? "登录中..." : "登录"}
+            登录
           </Button>
         </Stack>
       </Paper>

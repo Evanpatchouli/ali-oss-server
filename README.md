@@ -17,6 +17,7 @@ apps/
 - 纯 Node.js SDK 调用封装
 - OSS 文件上传、流式上传、删除
 - 管理员账号密码登录管理端
+- 管理端动态维护调用方 client 凭证
 - 动态 IP 限制
 - 全局接口限流
 - 接口级限流
@@ -83,7 +84,6 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 | 变量                       | 说明                                       |
 | -------------------------- | ------------------------------------------ |
 | `PORT`                     | 服务端口，默认示例为 `9512`                |
-| `AUTH_CLIENTS`             | 调用方凭证数组，JSON 格式                  |
 | `TOKEN_SECRET`             | Bearer Token HMAC 签名密钥，至少 16 个字符 |
 | `TOKEN_EXPIRES_IN_SECONDS` | 业务 Token 与管理端 Token 的有效期，单位秒 |
 | `ADMIN_USERNAME`           | 管理端登录账号                             |
@@ -95,11 +95,7 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 | `OSS_SECURE`               | 是否使用 HTTPS 访问 OSS                    |
 | `UPLOAD_MAX_FILE_SIZE_MB`  | 单文件上传大小限制                         |
 
-`AUTH_CLIENTS` 示例：
-
-```env
-AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId":"partner-a","clientSecret":"partner-a-secret"}]
-```
+调用方 client 不再通过 `.env` 配置。首次启动后请登录管理端创建 client；服务会将 client 凭证持久化到 `data/runtime-state.json`，并在后续重启时读取该文件中的 `authClients`。该文件包含明文 `clientSecret`，部署时应保护 `data` 目录的读写权限。
 
 ## 管理端
 
@@ -107,7 +103,16 @@ AUTH_CLIENTS=[{"clientId":"demo-client","clientSecret":"demo-secret"},{"clientId
 
 - 生产访问地址：`/admin`
 - 使用 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD` 登录
-- 登录后可管理动态 IP 限制、接口限流，分页查询 Bucket，并上传文件到 OSS
+- 登录后可管理 client、动态 IP 限制、接口限流，分页查询 Bucket，并上传文件到 OSS
+
+### Client 管理
+
+- client 仅通过管理端维护，不再读取 `.env`
+- 首次部署后 client 列表为空，需要先新增 client 才能换取业务 token
+- 管理端支持新增 client、删除 client、重置 clientSecret
+- client 列表不回显密钥，新增或重置后需要将新密钥同步给调用方
+- 删除 client 或重置 clientSecret 会影响后续业务 token 校验和新 token 签发
+- 配置会持久化到根目录 `data/runtime-state.json`，并立即影响 `/api/auth/token`
 
 ### 动态 IP 限制
 
@@ -181,6 +186,38 @@ curl -X POST http://localhost:9512/api/admin/auth/login \
 ```
 
 响应中的 `accessToken` 用于访问管理端配置接口。
+
+### 查询 client 列表
+
+```bash
+curl http://localhost:9512/api/admin/auth-clients \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
+
+### 新增 client
+
+```bash
+curl -X POST http://localhost:9512/api/admin/auth-clients \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"clientId":"partner-a","clientSecret":"partner-a-secret"}'
+```
+
+### 重置 clientSecret
+
+```bash
+curl -X PUT http://localhost:9512/api/admin/auth-clients/partner-a \
+  -H "Authorization: Bearer <adminAccessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"clientSecret":"new-partner-a-secret"}'
+```
+
+### 删除 client
+
+```bash
+curl -X DELETE http://localhost:9512/api/admin/auth-clients/partner-a \
+  -H "Authorization: Bearer <adminAccessToken>"
+```
 
 ### 查询动态 IP 限制
 

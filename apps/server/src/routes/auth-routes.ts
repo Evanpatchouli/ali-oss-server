@@ -19,7 +19,7 @@ export function createAuthRouter(): Router {
     const clientId = readRequiredHeader(ctx, "x-client-id");
     const sign = readRequiredStringField(body, "sign");
     const client = authenticateClient(clientId, sign);
-    const token = signAccessToken(client.clientId);
+    const token = signAccessToken(client.clientId, client.clientSecret);
 
     ctx.body = {
       tokenType: "Bearer",

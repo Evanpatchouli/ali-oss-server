@@ -229,6 +229,7 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
           <Button
             variant="contained"
             onClick={onUpload}
+            loading={uploadPending}
             disabled={
               uploadPending ||
               !filename.trim() ||
@@ -236,7 +237,7 @@ export function FileUploadPanel(props: FileUploadPanelProps) {
               fileOversized
             }
           >
-            {uploadPending ? "上传中..." : "上传文件"}
+            上传文件
           </Button>
         </Stack>
       </Stack>

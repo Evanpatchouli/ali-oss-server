@@ -37,6 +37,8 @@ export const knownRateLimitRoutes: Array<{ method: string; path: string }> = [
   { method: "POST", path: "/api/oss/upload-stream" },
   { method: "DELETE", path: "/api/oss/object" },
   { method: "POST", path: "/api/admin/auth/login" },
+  { method: "GET", path: "/api/admin/auth-clients" },
+  { method: "POST", path: "/api/admin/auth-clients" },
   { method: "GET", path: "/api/admin/ip-allowlist" },
   { method: "PUT", path: "/api/admin/ip-allowlist" },
   { method: "GET", path: "/api/admin/rate-limit" },

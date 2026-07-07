@@ -4,12 +4,14 @@ type IpAllowlistPanelProps = {
   activeIpCount: number;
   draft: string;
   pageLoading: boolean;
+  saveLoading: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
 };
 
 export function IpAllowlistPanel(props: IpAllowlistPanelProps) {
-  const { activeIpCount, draft, pageLoading, onChange, onSave } = props;
+  const { activeIpCount, draft, pageLoading, saveLoading, onChange, onSave } =
+    props;
 
   return (
     <Stack spacing={3}>
@@ -38,7 +40,12 @@ export function IpAllowlistPanel(props: IpAllowlistPanelProps) {
         <Typography sx={{ color: "text.secondary" }}>
           当前草稿包含 {activeIpCount} 个 IP。
         </Typography>
-        <Button variant="contained" onClick={onSave} disabled={pageLoading}>
+        <Button
+          variant="contained"
+          onClick={onSave}
+          loading={saveLoading}
+          disabled={pageLoading}
+        >
           保存 IP 限制
         </Button>
       </Stack>

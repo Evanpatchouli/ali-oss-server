@@ -1,6 +1,7 @@
 import type {
   AdminUploadConfig,
   AdminUploadResponse,
+  AuthClientsResponse,
   BucketObjectsResponse,
   AdminLoginResponse,
   IpAllowlistResponse,
@@ -12,6 +13,7 @@ import type {
 export type {
   AdminUploadConfig,
   AdminUploadResponse,
+  AuthClientsResponse,
   BucketObjectsResponse,
   AdminLoginResponse,
   IpAllowlistResponse,
@@ -58,6 +60,64 @@ export async function updateIpAllowlist(
     },
     body: JSON.stringify({ ips }),
   });
+}
+
+export async function fetchAuthClients(
+  token: string
+): Promise<AuthClientsResponse> {
+  return request<AuthClientsResponse>("/api/admin/auth-clients", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function createAuthClient(
+  token: string,
+  payload: {
+    clientId: string;
+    clientSecret: string;
+  }
+): Promise<AuthClientsResponse> {
+  return request<AuthClientsResponse>("/api/admin/auth-clients", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateAuthClientSecret(
+  token: string,
+  clientId: string,
+  clientSecret: string
+): Promise<AuthClientsResponse> {
+  return request<AuthClientsResponse>(
+    `/api/admin/auth-clients/${encodeURIComponent(clientId)}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ clientSecret }),
+    }
+  );
+}
+
+export async function deleteAuthClient(
+  token: string,
+  clientId: string
+): Promise<AuthClientsResponse> {
+  return request<AuthClientsResponse>(
+    `/api/admin/auth-clients/${encodeURIComponent(clientId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 }
 
 export async function fetchRateLimit(

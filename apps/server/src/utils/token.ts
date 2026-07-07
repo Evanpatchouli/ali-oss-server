@@ -1,6 +1,12 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomUUID,
+  timingSafeEqual,
+} from "node:crypto";
 
 import { config } from "../config/env.js";
+import { getAuthClient } from "../services/auth-client-service.js";
 import { unauthorized } from "./http-error.js";
 
 type AccessTokenPayload = {
@@ -10,6 +16,7 @@ type AccessTokenPayload = {
   iat: number;
   exp: number;
   jti: string;
+  clientSecretHash?: string;
 };
 
 export type VerifiedAccessToken = {
@@ -33,12 +40,14 @@ const TOKEN_HEADER = {
 /**
  * Signs a short-lived bearer token for a configured API caller.
  */
-export function signAccessToken(clientId: string): {
+export function signAccessToken(clientId: string, clientSecret: string): {
   token: string;
   expiresIn: number;
   expiresAt: string;
 } {
-  return signToken("client", clientId);
+  return signToken("client", clientId, {
+    clientSecretHash: hashClientSecret(clientSecret),
+  });
 }
 
 /**
@@ -54,7 +63,8 @@ export function signAdminAccessToken(username: string): {
 
 function signToken(
   kind: AccessTokenPayload["kind"],
-  subject: string
+  subject: string,
+  extraPayload?: Pick<AccessTokenPayload, "clientSecretHash">
 ): {
   token: string;
   expiresIn: number;
@@ -69,6 +79,7 @@ function signToken(
     iat: issuedAt,
     exp: expiresAt,
     jti: randomUUID(),
+    ...extraPayload,
   };
 
   const encodedHeader = base64UrlJson(TOKEN_HEADER);
@@ -87,6 +98,17 @@ function signToken(
  */
 export function verifyAccessToken(token: string): VerifiedAccessToken {
   const payload = verifyToken(token, "client");
+  const client = getAuthClient(payload.sub);
+  if (!client) {
+    throw unauthorized("TOKEN_CLIENT_REVOKED", "Invalid token");
+  }
+
+  if (
+    payload.clientSecretHash &&
+    !safeEqual(payload.clientSecretHash, hashClientSecret(client.clientSecret))
+  ) {
+    throw unauthorized("TOKEN_CLIENT_REVOKED", "Invalid token");
+  }
 
   return {
     clientId: payload.sub,
@@ -148,6 +170,10 @@ function sign(value: string): string {
     .digest("base64url");
 }
 
+function hashClientSecret(clientSecret: string): string {
+  return createHash("sha256").update(clientSecret).digest("base64url");
+}
+
 function base64UrlJson(value: unknown): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
@@ -179,7 +205,9 @@ function isTokenPayload(value: unknown): value is AccessTokenPayload {
     typeof payload.sub === "string" &&
     typeof payload.iat === "number" &&
     typeof payload.exp === "number" &&
-    typeof payload.jti === "string"
+    typeof payload.jti === "string" &&
+    (payload.clientSecretHash === undefined ||
+      typeof payload.clientSecretHash === "string")
   );
 }
 
