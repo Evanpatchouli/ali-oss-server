@@ -1,13 +1,13 @@
 # 当前任务
 
 - 日期：2026-07-07
-- 需求：修复直接访问 Bucket 查询 URL 时不会自动查询数据的问题。
-- 状态：已完成，已通过 `pnpm --filter @ali-oss-server/admin typecheck`，本次触碰文件未检测到 UTF-8 BOM。尝试使用 Browser 插件做渲染验证，但当前环境返回 `Browser is not available: iab`。
-- 方案：Bucket 查询路由首次进入或 URL 条件变化时自动按 URL 加载数据；前缀输入保留为草稿，点击“查询”或目录链接时再更新动态路径并加载，避免输入过程重复请求。
+- 需求：参考 `C:\Work\benefits\benefits-ui\packages\cheguanjia-landing` 在 admin 注入版本信息。
+- 状态：已完成，已通过 `pnpm --filter @ali-oss-server/admin typecheck` 和 `pnpm --filter @ali-oss-server/admin build`，本次触碰文件未检测到 UTF-8 BOM。
+- 方案：在 admin Vite 配置中读取 `package.json` 和 git short SHA，注入 `__APP_NAME__`、`__APP_VERSION__`、`__GIT_SHA__` 常量并写入 HTML meta；管理端顶部栏显示版本号和 git hash，build time 放入 hover 标题。
 
 ## 计划
 
-1. [x] 复核当前 Bucket URL 状态同步实现。
-2. [x] 增加按 URL 自动查询逻辑。
-3. [x] 调整前缀输入与 URL 更新时机。
+1. [x] 查阅全局规则和参考项目版本注入方式。
+2. [x] 在 Vite 配置中注入版本常量与 HTML meta。
+3. [x] 在 admin UI 顶部栏展示版本信息。
 4. [x] 运行类型检查并检查触碰文件 BOM。

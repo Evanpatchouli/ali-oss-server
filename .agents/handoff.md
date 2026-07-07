@@ -14,6 +14,7 @@
 - 已为管理端接入 `react-router-dom`，各 tab 挂载到 `/admin/ip-allowlist`、`/admin/rate-limit`、`/admin/bucket-objects`、`/admin/upload`
 - Bucket 查询前缀已同步到动态路径，例如 `/admin/bucket-objects/uploads/images/`；每页数量同步到 `maxKeys` 查询参数。
 - 直接访问 Bucket 查询 URL 会按 URL 条件自动查询；前缀输入作为草稿，点击“查询”后才写入动态路径。
+- 管理端构建期会注入版本信息：`__APP_NAME__`、`__APP_VERSION__`、`__GIT_SHA__`，并在 HTML 中写入 `app-name`、`app-version`、`git-sha`、`build-time` meta；顶部栏展示版本号和 git short SHA。
 - 已为动态 IP 限制和限流配置新增本地 JSON 文件持久化
 - 已创建 `.env.example` 与可运行 `.env`
 - 已补充 `pnpm build` 生产构建脚本

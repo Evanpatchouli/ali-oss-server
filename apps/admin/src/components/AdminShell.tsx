@@ -34,6 +34,9 @@ type AdminShellProps = {
 };
 
 export function AdminShell(props: AdminShellProps) {
+  const versionLabel = `v${__APP_VERSION__.version}${
+    __GIT_SHA__ === "unknown" ? "" : ` (${__GIT_SHA__})`
+  }`;
   const {
     children,
     errorMessage,
@@ -79,6 +82,11 @@ export function AdminShell(props: AdminShellProps) {
           />
           <Chip
             label={`到期：${new Date(session.expiresAt).toLocaleString()}`}
+            variant="outlined"
+          />
+          <Chip
+            label={versionLabel}
+            title={`${__APP_NAME__} build ${__APP_VERSION__.buildTime}`}
             variant="outlined"
           />
           <Button onClick={onLogout}>退出</Button>
