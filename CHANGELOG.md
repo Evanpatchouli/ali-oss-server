@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.0 - 2026-07-07
+
+### Added
+
+- 新增管理端 Client 管理页，支持新增、删除和重置调用方 client 凭证。
+- 新增管理端 client 凭证接口，配置会写入运行态状态文件并立即影响业务 token 签发。
+- 管理端运行概览展示当前 client 数量。
+
+### Changed
+
+- 调用方 client 不再通过 `.env` 的 `AUTH_CLIENTS` 配置，改为通过管理端维护。
+- 登录、刷新、Client 管理、限流、Bucket 查询和上传等后端交互按钮展示具体 loading 状态。
+
+### Security
+
+- 业务 token 会关联签发时的 clientSecret，删除 client 或重置密钥后可使相关业务 token 失效。
+
+### Breaking
+
+- 移除 `AUTH_CLIENTS` 环境变量；升级后需要先登录管理端创建 client，调用方才能换取业务 token。
+
 ## 1.0.1 - 2026-07-07
 
 ### Added
