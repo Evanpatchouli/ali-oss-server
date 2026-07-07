@@ -56,6 +56,7 @@ pnpm dev
 ```
 
 - 管理端 Vite 开发地址默认是 `http://localhost:5173`
+- SDK 源码已从单一 `apps/sdk/src/index.ts` 拆分为门面入口加职责模块；公开导出仍保持 `@ali-oss-server/sdk` 根入口不变。
 
 ## 生产构建运行
 
@@ -80,6 +81,7 @@ docker compose up -d --build
 ## 注意事项
 
 - `.env` 中已配置真实 OSS AccessKey 和 Bucket。
+- SDK 内部模块边界：`client.ts` 放主类和工厂函数，`types.ts` 放公开类型，`errors.ts` 放错误类，`http.ts`/`responses.ts` 处理请求与响应，`validation.ts`/`binary.ts`/`normalize.ts`/`object-key.ts` 放无状态工具。
 - Docker Compose 会读取 `.env`，不要将 `.env` 提交到仓库。
 - `.env` 不再配置 `AUTH_CLIENTS`；调用方 client 只通过管理端维护，保存后写入 `data/runtime-state.json` 并立即影响 `/api/auth/token`。
 - 首次部署时 client 列表为空，需要先登录管理端创建 client。
