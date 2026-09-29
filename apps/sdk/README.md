@@ -66,3 +66,57 @@ client object-key isolation rules. Existing servers do not understand this
 Unicode header, so upgrade the server before using Unicode file names with the
 updated SDK. Requests with ASCII file names remain compatible with older
 servers.
+
+## Object keys, URLs, and deletion
+
+For business uploads, the server scopes every object to the SDK client's
+`clientId`. You may pass a key relative to that client, such as
+`uploads/a.txt`, or the same key with the current client prefix,
+`partner-a/uploads/a.txt`. With `clientId: "partner-a"`, both resolve to the
+final OSS key `partner-a/uploads/a.txt`; the server manages the prefix. When no
+explicit key is supplied, the SDK may derive an upload key from its configured
+prefix and filename, but the server still determines the final key.
+
+`uploadBuffer`, `uploadImage`, and `uploadStream` return the final `objectKey`
+reported by the server. Save that returned value in your database and pass it
+to later SDK operations. Do not reconstruct the final key or prepend
+`clientId` again.
+
+```js
+import { createReadStream } from "node:fs";
+import { AliOssServerSdk } from "@ali-oss-server/sdk";
+
+const sdk = new AliOssServerSdk({
+  serverBaseUrl: "http://localhost:9512",
+  clientId: "partner-a",
+  clientSecret: "replace-with-your-client-secret",
+});
+
+const uploaded = await sdk.uploadStream({
+  stream: createReadStream("./a.txt"),
+  fileName: "a.txt",
+  objectKey: "uploads/a.txt",
+});
+
+// Persist uploaded.objectKey (and optionally uploaded.url) in your database.
+console.log(uploaded.objectKey); // partner-a/uploads/a.txt
+await sdk.deleteObject(uploaded.objectKey);
+```
+
+The returned `url` is an object address, not a temporary signed URL; it has no
+temporary signature or expiration. It remains the same while the object key,
+bucket, endpoint, and relevant URL configuration remain the same. URL stability
+does not make a private bucket public: direct access depends on the bucket and
+object ACL and access policy. A private object requires an authorized access
+method. The URL host and exact formatting can vary with OSS configuration.
+
+`deleteObject(objectKey)` accepts either a client-relative key or one already
+prefixed with this client's `clientId`. On success, it returns the final
+normalized `objectKey` and `deleted: true`. OSS treats deleting a nonexistent
+object as success, so you can safely retry when the outcome of a prior request
+is unknown as long as the same key has not been uploaded again in the meantime;
+a retry after recreation can delete the new object. Repeated deletion in a
+versioned bucket can create additional delete markers. Authorization, network,
+malformed request, or OSS errors can still reject the call.
+
+See the [API contract](../../docs/specs/api-contracts.md#3-%E4%B8%9A%E5%8A%A1-oss-%E5%AF%B9%E8%B1%A1%E9%9A%94%E7%A6%BB) for the complete behavior and external OSS references.

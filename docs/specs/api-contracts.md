@@ -50,13 +50,16 @@ Admin token 保护以下动态配置与 OSS 管理接口：
 
 业务上传和删除必须被 server 收口到当前 token 的 `clientId/` 目录。
 
-示例：clientId 为 `partner-a`，调用方传 `uploads/a.png`，最终对象为：
+调用方的 `objectKey` 可以是相对当前 client 的 key，也可以包含当前完整 `clientId/` 前缀。server 负责隔离与归一化；clientId 为 `partner-a` 时，下面两种输入都指向同一个最终 OSS key：
 
 ```text
-partner-a/uploads/a.png
+uploads/a.png            -> partner-a/uploads/a.png
+partner-a/uploads/a.png  -> partner-a/uploads/a.png
 ```
 
-调用方即使传入 `partner-a/uploads/a.png`，也只表示同一相对对象，不应形成重复前缀。
+上传接口响应中的 `objectKey` 是最终 OSS key。SDK 将 server 返回的 `objectKey` 原样作为上传结果返回。调用方应持久化这个最终值；不得自行推导或再次拼接 clientId。
+
+该 namespace 规则适用于业务 API，不适用于独立的 admin OSS API。调用方传入其他 clientId 前缀时，不会因此获得访问其他 namespace 的能力，仍受当前 clientId 隔离。
 
 对象 key 规则：
 
@@ -68,6 +71,14 @@ partner-a/uploads/a.png
 - `randomFilename=true` 只随机化最后一级文件名，保留目录和扩展名。
 
 不得通过业务 API 越过当前 clientId 目录访问其他调用方对象。
+
+### URL 与访问权限
+
+上传响应中的 `url` 是由 OSS 客户端根据对象 key 和当前 bucket/endpoint 等配置生成的对象地址，不是临时签名 URL；它不包含用于临时授权的签名和过期时间。相同 objectKey 且 bucket、endpoint、URL 相关配置不变时，地址稳定。bucket 或 endpoint 等配置变化时，地址形式可能变化；具体 host 和 URL 生成方式不是公共契约。
+
+地址稳定不代表对象可公开读取。对象能否直接访问由最终生效的 bucket/object ACL 和访问策略决定；对象为 private 时，调用方不能仅凭该 URL 直接读取。即使 bucket 为 private，显式设为 public-read 的对象也可能允许匿名读取。需要向未授权访问者短期开放私有对象时，应由有权限的服务端按 OSS 权限模型提供相应访问方式。
+
+外部行为依据：[阿里云固定文件 URL 文档](https://help.aliyun.com/en/oss/use-a-fixed-file-url-to-access-a-file)与[对象 ACL 文档](https://help.aliyun.com/en/oss/user-guide/object-acl)。对象 ACL 文档明确说明显式 object ACL 优先于 bucket ACL。
 
 ## 4. 上传接口
 
@@ -104,6 +115,11 @@ partner-a/uploads/a.png
 - 鉴权：client bearer token。
 - JSON 请求体包含 `objectKey`。
 - 与上传相同，最终删除路径必须被限制在当前 clientId 目录。
+- `objectKey` 可为相对 key 或已包含当前 clientId 的完整 key；成功响应的 `objectKey` 是归一化后的最终 OSS key。
+- 对象不存在时，OSS `DeleteObject` 成功返回 HTTP 204；ali-oss 6.23.0 的 `delete()` 接受该成功响应。因此删除不存在对象会成功，返回 `{ objectKey, deleted: true }`，调用方可在删除结果不确定时重试。
+- 这项重试语义适用于同一 key 未被重新上传的情况；如果原请求结果不确定期间同一 key 已被重新创建，重试会删除新对象。版本化 bucket 中重复删除也可能创建额外删除标记。因此它允许调用方在对象未重建时重试，但不保证版本化 bucket 的历史副作用只有一次。权限、网络、请求和 OSS 服务错误仍会导致请求 reject/失败响应，不会返回 `deleted: true`。
+
+外部行为依据：[阿里云 DeleteObject 文档](https://help.aliyun.com/en/oss/developer-reference/deleteobject) 说明删除不存在的对象仍返回 204。ali-oss 6.23.0 的运行时实现接受成功状态码；本仓库 contract test 另锁定 service 对成功 delete 的响应和 key 归一化，不访问真实 OSS。
 
 ## 6. Admin OSS 行为
 

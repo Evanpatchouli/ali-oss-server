@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "start:ts": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test:protocol": "node --import tsx --test test/file-name-header.test.mjs"
+    "test:protocol": "node --import tsx --test test/file-name-header.test.mjs",
+    "test:contract": "node --import tsx --test test/oss-object-contract.test.mjs"
   },
   "dependencies": {
     "@koa/router": "^15.6.0",

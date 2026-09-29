@@ -186,7 +186,11 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
         );
       },
     });
-    await sdk.uploadStream({ fileName, stream: new Blob(["x"]).stream() });
+    const uploadResult = await sdk.uploadStream({
+      fileName,
+      stream: new Blob(["x"]).stream(),
+    });
+    assert.equal(uploadResult.objectKey, `client/${fileName}`);
 
     if (/^[\x20-\x7E]+$/u.test(fileName)) {
       assert.equal(uploadHeaders.get("x-file-name"), fileName);
@@ -203,6 +207,47 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
       assert.equal(uploadHeaders.has("x-file-name"), false);
     }
   }
+
+  const deleteRequests = [];
+  const deleteSdk = new AliOssServerSdk({
+    serverBaseUrl: "http://localhost:9512",
+    clientId: "client",
+    clientSecret: "secret",
+    fetch: async (url, init) => {
+      if (url.endsWith("/api/auth/token")) {
+        return new Response(
+          JSON.stringify({
+            tokenType: "Bearer",
+            accessToken: "test-token",
+            expiresIn: 3600,
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            clientId: "client",
+          })
+        );
+      }
+
+      deleteRequests.push({ url, body: JSON.parse(init.body) });
+      return new Response(
+        JSON.stringify({
+          objectKey: "client/uploads/a.txt",
+          deleted: true,
+          clientId: "client",
+        })
+      );
+    },
+  });
+  const deleteResult = await deleteSdk.deleteObject("uploads/a.txt");
+  assert.deepEqual(deleteRequests, [
+    {
+      url: "http://localhost:9512/api/oss/object",
+      body: { objectKey: "uploads/a.txt" },
+    },
+  ]);
+  assert.deepEqual(deleteResult, {
+    objectKey: "client/uploads/a.txt",
+    deleted: true,
+    clientId: "client",
+  });
 
   const esmTypesPath = join(consumerDirectory, "consumer.mts");
   const cjsTypesPath = join(consumerDirectory, "consumer.cts");
