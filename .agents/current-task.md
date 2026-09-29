@@ -24,13 +24,14 @@
 | T1 | 核对 v3 模板结构和 ali-oss-server 当前结构 | investigate | done | S0 | scout | Evidence Pack：模板目录、模块、脚本、历史决策 | GitHub 文件与 tree 检索 |
 | T2 | 决定长期知识与短期 Agent 状态的迁移边界 | decide | done | S2 | worker | 保留历史 `.agents`；新的稳定事实进入 `docs/` | 文档结构 review |
 | T3 | 写入 v3 入口、角色和项目化 docs | execute | done | S1 | fast-worker | 按确定结构进行机械文档接入 | 最终 diff review |
-| T4 | 独立检查范围、链接和事实一致性 | review | pending | S0 | reviewer | 只检查文档，不改产品行为 | PR diff |
+| T4 | 独立检查范围、链接和事实一致性 | review | done | S0 | reviewer | 未发现 blocker；变更仅限 Agent/文档文件 | PR diff |
 
 ## Evidence / blockers
 
 - 当前仓库已有旧式 `.agents/` 历史资料和 `maintain-changelog` skill，但没有根 `AGENTS.md` 与正式 `docs/` v3 知识库。
 - 仓库当前没有自动化测试套件或 CI workflow；testing runbook 必须如实记录这一现状。
-- 本任务不需要运行产品构建；若 review 发现误改产品代码，则视为 blocker。
+- PR 复核确认 26 个变更文件全部位于 `AGENTS.md`、`.agents/`、`docs/`，没有产品代码、依赖或运行配置改动。
+- 本任务不需要运行产品构建；文档事实已与当前代码、package 脚本和仓库 tree 交叉核对。
 
 ## Implementation Briefs
 
