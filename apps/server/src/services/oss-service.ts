@@ -134,11 +134,7 @@ export async function uploadStream(input: {
   mimeType?: string;
   contentLength?: number;
 }): Promise<UploadedObject> {
-  const objectKey = buildClientUploadObjectKey({
-    clientId: input.clientId,
-    objectKey: input.objectKey ?? getOriginalFilename(input.fileName),
-    randomFilename: input.randomFilename ?? false,
-  });
+  const objectKey = buildStreamUploadObjectKey(input);
   const options = {} as NonNullable<Parameters<typeof client.putStream>[2]>;
 
   if (input.contentLength !== undefined) {
@@ -152,6 +148,20 @@ export async function uploadStream(input: {
   const result = await client.putStream(objectKey, input.stream, options);
 
   return buildUploadedObject(result.name);
+}
+
+/** Builds the same validated object key used by stream uploads, without OSS I/O. */
+export function buildStreamUploadObjectKey(input: {
+  clientId: string;
+  objectKey?: string;
+  randomFilename?: boolean;
+  fileName?: string;
+}): string {
+  return buildClientUploadObjectKey({
+    clientId: input.clientId,
+    objectKey: input.objectKey ?? getOriginalFilename(input.fileName),
+    randomFilename: input.randomFilename ?? false,
+  });
 }
 
 /**

@@ -4,40 +4,41 @@ Status: done
 
 ## Goal
 
-完成 Issue #1：让 `@ali-oss-server/sdk` 的安装包同时支持 Node >= 20 的 ESM `import` 与 CommonJS `require`，保留现有根公开 API，并提交实现。
+完成 Issue #2：`uploadStream({ fileName })` 支持 Unicode 文件名，并保持旧 `x-file-name` 字面量兼容；实现协议、测试、文档并提交。
 
 ## Parent task complexity
 
-S2：需要决定双格式发布、声明文件及安装后条件解析的边界；确定方案后实现和验证可降级。
+S2：SDK ↔ HTTP header ↔ server 的公开协议需要兼容性决策。决策完成后的编码、测试和文档分别降为 S1。
 
 ## Work units
 
-| ID  | 工作单元                                | 模式        | 难度 / 路由             | 状态 | 验收                                 |
-| --- | --------------------------------------- | ----------- | ----------------------- | ---- | ------------------------------------ |
-| T1  | Issue 与 SDK 当前消费行为 triage        | investigate | S0 / scout              | done | 紧凑 Evidence Pack                   |
-| T2  | 决定 ESM/CJS 产物及类型声明结构         | decide      | S2 / worker（主 Agent） | done | Implementation Brief                 |
-| T3  | 实现双格式构建和包导出                  | execute     | S1 / fast-worker        | done | 两种产物和条件导出一致               |
-| T4  | 建立打包安装后的最小 ESM/CJS 消费测试   | execute     | S1 / fast-worker        | done | 两个独立 Node consumer 实际运行      |
-| T5  | 更新 SDK README、测试 runbook、API 契约 | execute     | S1 / fast-worker        | done | 文档与发布行为一致                   |
-| T6  | 执行 SDK 验证、检查包内容与最终 diff    | verify      | S0 / scout              | done | typecheck、build、consumer test 通过 |
-| T7  | 最终独立只读 review 并修复 blocker      | review      | reviewer                | done | 无真实 blocker                       |
+| ID  | 工作单元                            | 模式        | 难度 / 路由      | 状态    | 验收                             |
+| --- | ----------------------------------- | ----------- | ---------------- | ------- | -------------------------------- |
+| T1  | Issue 与现有 header 流程 triage     | investigate | S0 / scout       | done    | Evidence Pack，无重复修复线索    |
+| T2  | 决定 Unicode filename wire protocol | decide      | S2 / 主 Agent    | done    | 无歧义 Implementation Brief      |
+| T3  | SDK/server 实现协议                 | execute     | S1 / fast-worker | done    | Unicode 可传输；非法编码 400     |
+| T4  | 协议、SDK/server 测试及公共文档     | execute     | S1 / fast-worker | done    | 指定文件名、错误、objectKey 覆盖 |
+| T5  | 指定包验证与最终 diff               | verify      | S0 / 主 Agent    | done    | typecheck、build、测试通过       |
+| T6  | 独立兼容性与安全 review             | review      | reviewer         | done    | 无 blocker                       |
+| T7  | 聚焦 Issue #2 的提交                | execute     | 主 Agent         | done    | 聚焦提交                        |
 
 ## Evidence Pack
 
-- Issue #1 当前 Open，要求 ESM 不回归、CommonJS 无 workaround 消费、双场景测试与 README 更新；没有关联修复 PR。
-- `apps/sdk/package.json` 为 `type: module`，`exports["."]` 仅有 `types` 和 `import`；`main` 指向 ESM。`tsconfig.json` 使用 NodeNext，只输出 ESM JS 与 `.d.ts`。
-- `src/index.ts` 的根公开运行时导出为 `AliOssServerSdk`、`createAliOssServerSdk`、`AliOssServerSdkError`，另有八个类型导出。内部相对导入带 `.js` 后缀。
-- Node 20 早期版本不能稳定使用 `require(ESM)`；即使新版本支持，现有 exports 也没有 `require` 分支。仓库原无自动化测试框架或 CI。
+- SDK `uploadStream` 将 trim 后文件名原样赋给 `x-file-name`；Node fetch 可能在发送前拒绝 Unicode header。
+- Server route 将该 header 字面量传给 `uploadStream`；服务层从原始文件名取 basename，缺省为 `file`，再由服务端添加 `clientId/`、检查控制字符和 UTF-8 长度。
+- `x-object-key` 有值时优先于文件名。当前服务端 `badRequest` 经 error-handler 输出结构化 400。
+- Issue #1 的 SDK `test:consumer` 已建立 Node 内置测试基础。Issue #2 无关联 PR，工作树初始干净。
 
 ## Implementation Brief
 
-- Decision: TypeScript 生成 `dist/*.d.ts` 的 ESM 声明和 `dist/cjs/*` 的 CommonJS 实现及声明；`dist/index.js` 是转发同一 CJS 实现的薄 ESM 入口，在 `dist/cjs/package.json` 中声明 `type: commonjs`。不引入打包器。
-- Files / interfaces: SDK package/build 配置、轻量 build 脚本、消费测试与直接相关文档；只公布包根入口。
-- Invariants: ESM 现有 import 不变；CJS `require` 可直接运行；两个入口共享公开运行时构造器；`exports` 的 import/require 分支各自指向匹配的 JS 与声明；实际实现的 source map 和两套 declaration map 路径有效；`main` 指向 CJS；`files` 包含所有产物；不改公开 API。
-- Acceptance: `npm pack` 后在临时独立 consumer 项目安装 tarball；`.mjs` 与 `.cjs` 都从包名加载并检查公开值；SDK typecheck/build 通过。
-- Do not: 改 server/admin、公开内部模块、引入大型测试框架或 eval/import workaround。
+- ASCII 可打印文件名（trim 后）继续发送字面量 `x-file-name`，包括 `%`、空格和 `#`；不对旧 header 进行 URI 解码。
+- 非 ASCII 文件名发送独立的 `x-file-name-utf8`，值为 `UTF-8''` 加 RFC 5987 风格 UTF-8 百分号编码，保证全 ASCII。SDK 一次只发送一个 filename header。
+- Server 检查 header 是否同时存在；双 header、空/错误前缀、非法 `%`、无效 UTF-8、解码后的控制字符等返回项目现有 `badRequest` 风格的 400。合法编码仅解码一次，再将原始文件名交现有服务层推导 objectKey。
+- 旧 SDK / 新 server：旧 header 始终字面量；新 SDK / 新 server：ASCII 旧 header、Unicode 新 header；现有直接 ASCII client 不变。新 SDK / 旧 server 的 ASCII 兼容，Unicode 需要新 server。
+- 保持 `x-object-key` 的既有优先级和服务端对象 key 安全规则。内部 helper 不作为 SDK 包根公开 API。
 
 ## Result
 
-- SDK typecheck、build、安装 tarball 后的 ESM/CJS/NodeNext 消费测试和变更文件格式检查均通过。
-- Reviewer 首轮发现的构造器身份分裂及 Windows 路径带空格时的测试失效已修复；最终独立复核未发现 blocker。
+- SDK 与 server 的 typecheck、build 通过；SDK `test:consumer` 1/1、server `test:protocol` 2/2 通过。
+- 独立 Reviewer 未发现 blocker。主 Agent 追加修复 encoded header 中原始换行符的校验漏洞并补回归案例。
+- 全仓 `format:check` 发现 28 个既有未格式化文件；本任务修改文件单独格式检查通过。

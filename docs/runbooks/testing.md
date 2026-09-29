@@ -2,7 +2,7 @@
 
 ## 当前测试现状
 
-截至 2026-09-29，仓库没有通用的自动化单元/集成/E2E 测试套件，也没有 GitHub Actions CI workflow。SDK 提供一项 Node 内置测试运行的发布包消费 smoke，覆盖打包安装后的 ESM、CommonJS 和 TypeScript NodeNext 导入。
+截至 2026-09-29，仓库没有通用的自动化单元/集成/E2E 测试套件，也没有 GitHub Actions CI workflow。SDK 提供一项 Node 内置测试运行的发布包消费 smoke，覆盖打包安装后的 ESM、CommonJS、TypeScript NodeNext 导入和流式上传文件名 header。Server 提供 Node 内置的文件名协议测试，不执行真实 OSS 上传。
 
 因此：
 
@@ -26,6 +26,7 @@ pnpm format:check
 ```bash
 pnpm --filter @ali-oss-server/server typecheck
 pnpm --filter @ali-oss-server/server build
+pnpm --filter @ali-oss-server/server test:protocol
 ```
 
 仅 admin：
@@ -43,7 +44,7 @@ pnpm --filter @ali-oss-server/sdk build
 pnpm --filter @ali-oss-server/sdk test:consumer
 ```
 
-`test:consumer` 使用 `npm pack` 生成 tarball，在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析。它要求先有最新的 `dist/` 构建产物。
+`test:consumer` 使用 `npm pack` 生成 tarball，在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析；文件名案例还通过 Node `Headers` 验证打包后 SDK 构造的请求头。它要求先有最新的 `dist/` 构建产物。`test:protocol` 检查 server 解码、非法 header 的 400 错误与服务层实际 objectKey 推导，不连接 OSS。
 
 容器配置：
 

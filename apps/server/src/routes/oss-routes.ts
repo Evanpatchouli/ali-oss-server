@@ -26,6 +26,7 @@ import {
   readOptionalStringField,
   readRequiredStringField,
 } from "../utils/request.js";
+import { readStreamFileName } from "../utils/file-name-header.js";
 
 type UploadedFile = {
   filepath?: string;
@@ -86,7 +87,10 @@ export function createOssRouter(): Router {
       stream: ctx.req.pipe(
         createSizeLimitedStream(config.oss.maxFileSizeBytes)
       ),
-      fileName: readOptionalHeader(ctx, "x-file-name"),
+      fileName: readStreamFileName({
+        "x-file-name": ctx.req.headers["x-file-name"],
+        "x-file-name-utf8": ctx.req.headers["x-file-name-utf8"],
+      }),
       mimeType: readRequestMimeType(ctx),
       contentLength,
     });

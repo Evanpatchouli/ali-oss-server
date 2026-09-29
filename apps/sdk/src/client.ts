@@ -12,6 +12,7 @@ import {
   normalizeRequiredUrl,
 } from "./normalize.js";
 import { buildObjectKey } from "./object-key.js";
+import { createFileNameHeaders } from "./file-name-header.js";
 import { readUploadResult } from "./responses.js";
 import type {
   AliOssDeleteResult,
@@ -175,9 +176,7 @@ export class AliOssServerSdk {
       "Content-Type": input.mimeType?.trim() || "application/octet-stream",
     };
 
-    if (input.fileName?.trim()) {
-      headers["x-file-name"] = input.fileName.trim();
-    }
+    Object.assign(headers, createFileNameHeaders(input.fileName));
 
     if (input.objectKey?.trim()) {
       headers["x-object-key"] = input.objectKey.trim();

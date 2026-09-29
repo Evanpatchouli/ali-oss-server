@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 const sdkDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -145,6 +145,64 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
     `import assert from "node:assert/strict";\nimport { createRequire } from "node:module";\nimport * as esm from "${packageName}";\nconst require = createRequire(import.meta.url);\nconst cjs = require("${packageName}");\nfor (const name of ["AliOssServerSdk", "createAliOssServerSdk", "AliOssServerSdkError"]) {\n  assert.equal(typeof esm[name], "function", "ESM export " + name + " must be callable");\n  assert.equal(esm[name], cjs[name], name + " must share identity across entry points");\n}\nconst options = { serverBaseUrl: "http://localhost:9512", clientId: "client", clientSecret: "secret" };\nassert.ok(new esm.AliOssServerSdk(options) instanceof cjs.AliOssServerSdk);\nassert.ok(new cjs.AliOssServerSdk(options) instanceof esm.AliOssServerSdk);\nassert.ok(esm.createAliOssServerSdk(options) instanceof cjs.AliOssServerSdk);\nassert.ok(cjs.createAliOssServerSdk(options) instanceof esm.AliOssServerSdk);\nconst esmError = new esm.AliOssServerSdkError("esm failure");\nconst cjsError = new cjs.AliOssServerSdkError("cjs failure");\nassert.ok(esmError instanceof cjs.AliOssServerSdkError);\nassert.ok(cjsError instanceof esm.AliOssServerSdkError);\nassert.ok(esmError instanceof Error);\nassert.ok(cjsError instanceof Error);\n`
   );
   run(process.execPath, [mixedPath], { cwd: consumerDirectory });
+
+  const { AliOssServerSdk } = await import(
+    pathToFileURL(join(installedDirectory, importTarget)).href
+  );
+  for (const fileName of [
+    "hello.txt",
+    "résumé.txt",
+    "项目资料 你好.txt",
+    "hello world.txt",
+    "a#b.txt",
+    "100%.txt",
+    "😀.txt",
+  ]) {
+    let uploadHeaders;
+    const sdk = new AliOssServerSdk({
+      serverBaseUrl: "http://localhost:9512",
+      clientId: "client",
+      clientSecret: "secret",
+      fetch: async (url, init) => {
+        if (url.endsWith("/api/auth/token")) {
+          return new Response(
+            JSON.stringify({
+              tokenType: "Bearer",
+              accessToken: "test-token",
+              expiresIn: 3600,
+              expiresAt: new Date(Date.now() + 3600000).toISOString(),
+              clientId: "client",
+            })
+          );
+        }
+
+        uploadHeaders = new Headers(init.headers);
+        return new Response(
+          JSON.stringify({
+            objectKey: `client/${fileName}`,
+            url: "https://example.test/object",
+            bucket: "test-bucket",
+          })
+        );
+      },
+    });
+    await sdk.uploadStream({ fileName, stream: new Blob(["x"]).stream() });
+
+    if (/^[\x20-\x7E]+$/u.test(fileName)) {
+      assert.equal(uploadHeaders.get("x-file-name"), fileName);
+      assert.equal(uploadHeaders.has("x-file-name-utf8"), false);
+    } else {
+      assert.equal(
+        uploadHeaders.get("x-file-name-utf8"),
+        `UTF-8''${encodeURIComponent(fileName).replace(
+          /[!'()*]/gu,
+          (character) =>
+            `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+        )}`
+      );
+      assert.equal(uploadHeaders.has("x-file-name"), false);
+    }
+  }
 
   const esmTypesPath = join(consumerDirectory, "consumer.mts");
   const cjsTypesPath = join(consumerDirectory, "consumer.cts");

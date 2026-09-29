@@ -88,7 +88,12 @@ partner-a/uploads/a.png
 - 鉴权：client bearer token。
 - 请求体必须是原始二进制流。
 - 明确拒绝 `multipart/form-data`、`application/json`、`application/x-www-form-urlencoded`。
-- 可选请求头：`x-file-name`、`x-object-key`、`x-random-filename`、`content-length`。
+- 可选请求头：`x-file-name`、`x-file-name-utf8`、`x-object-key`、`x-random-filename`、`content-length`。
+- ASCII 文件名使用 `x-file-name`，其值按字面量处理；其中的 `%`、`#` 和空格不进行 URI 解码。旧 SDK 发送的 ASCII 文件名保持此行为。
+- Unicode 文件名使用 `x-file-name-utf8`，格式为 `UTF-8''` 加 RFC 5987 风格的 UTF-8 百分号编码。server 只解码一次，并将得到的原始文件名交给现有 objectKey 推导和 `clientId/` 隔离规则处理。
+- 单个请求只能提供其中一个文件名请求头。两个请求头同时出现、编码前缀为空或不合法、百分号转义格式错误、解码结果不是有效 UTF-8，或解码结果含控制字符时，返回现有格式的 HTTP 400 错误。
+- 旧 SDK 与新 server 兼容：`x-file-name` 始终按字面量读取。新 SDK 与新 server 兼容：ASCII 文件名使用旧请求头，Unicode 文件名使用 UTF-8 请求头。新 SDK 与旧 server 的 ASCII 上传兼容；Unicode 上传需要升级 server。
+- `x-object-key` 的既有优先级不变；提供时仍优先于文件名，最终对象路径继续遵守本规范的服务端 object key 安全与 client 隔离规则。
 - server 既检查声明的 Content-Length，也通过计数 Transform 对实际流量做大小兜底限制。
 - 上传实现使用 ali-oss `putStream`，不能先把整个流读入内存再上传。
 
