@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 - 2026-09-29
+
+### Added
+
+- 流式上传支持通过 `x-file-name-utf8` 安全传递 Unicode 文件名，兼容中文、重音字符和 emoji。
+- 非法或冲突的流式上传文件名 header 会返回明确的 400 错误。
+
+### Changed
+
+- 明确并锁定业务 objectKey 的 clientId 隔离、上传返回最终 objectKey、对象 URL 与删除重试语义。
+
 ## 1.1.0 - 2026-07-07
 
 ### Added
