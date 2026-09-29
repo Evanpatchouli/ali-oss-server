@@ -117,8 +117,11 @@ Admin OSS 权限与业务 client 隔离不同：
 公开包：`@ali-oss-server/sdk`。
 
 - 支持 Node >= 20。
-- 包根 `exports["."]` 是公开入口；内部文件不是公共兼容承诺。
+- 包根 `exports["."]` 是 ESM 和 CommonJS 的公开入口；ESM `import` 条件解析到 ESM 入口，CommonJS `require` 条件解析到 CommonJS 实现。两个入口共享同一运行时构造器。
+- `import` 与 `require` 条件分别提供对应模块格式的 TypeScript 声明；消费者从包名导入时应能由 NodeNext 解析到匹配声明。
+- 发布包必须包含这两个运行时入口及其声明文件；内部文件不是公共兼容承诺。
 - 公开客户端为 `AliOssServerSdk` / `createAliOssServerSdk`。
+- `AliOssServerSdkError` 也是包根公开值，两个模块系统均可导入。
 - SDK 不持有阿里云 AccessKey；只持有 ali-oss-server 的 clientId/clientSecret。
 - SDK 内部拆分时，NodeNext 相对导入继续使用 `.js` 后缀。
 - 未明确声明 breaking change 时，不改变已有根导出、调用参数与返回语义。

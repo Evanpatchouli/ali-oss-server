@@ -2,14 +2,14 @@
 
 ## 当前测试现状
 
-截至 2026-09-29，仓库**没有自动化单元/集成/E2E 测试套件，也没有 GitHub Actions CI workflow**。
+截至 2026-09-29，仓库没有通用的自动化单元/集成/E2E 测试套件，也没有 GitHub Actions CI workflow。SDK 提供一项 Node 内置测试运行的发布包消费 smoke，覆盖打包安装后的 ESM、CommonJS 和 TypeScript NodeNext 导入。
 
 因此：
 
-- 不要写出不存在的 `pnpm test`。
+- 不要写出不存在的根级 `pnpm test`。
 - 不要在未实际执行验证时声称“测试已通过”。
 - 当前最低验证由 typecheck、build、format check 和按影响面选择的 HTTP/OSS smoke 组成。
-- 后续若加入测试框架，应更新本页并让自动化测试成为相应行为的主要验证证据。
+- SDK 消费 smoke 不依赖测试框架；它验证发布 tarball 的外部消费行为。
 
 ## 基础验证
 
@@ -40,7 +40,10 @@ pnpm --filter @ali-oss-server/admin build
 ```bash
 pnpm --filter @ali-oss-server/sdk typecheck
 pnpm --filter @ali-oss-server/sdk build
+pnpm --filter @ali-oss-server/sdk test:consumer
 ```
+
+`test:consumer` 使用 `npm pack` 生成 tarball，在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析。它要求先有最新的 `dist/` 构建产物。
 
 容器配置：
 
@@ -52,15 +55,15 @@ docker compose config
 
 ## 按改动选择最小验证集
 
-| 改动范围 | 最小验证 | 需要额外 smoke 的情况 |
-| --- | --- | --- |
-| 仅文档/Agent 规范 | Markdown/链接 review；需要时 `pnpm format:check` | 无 |
-| server 类型/纯逻辑 | server typecheck + build | 路由、中间件、认证、持久化改变 |
-| admin UI | admin typecheck + build | 路由、API 调用、生产 base/静态资源改变 |
-| SDK | sdk typecheck + build | token、上传、删除或公开导出改变 |
-| root/workspace/Docker | `pnpm typecheck` + `pnpm build` + `docker compose config` | Dockerfile/Compose 运行时改变 |
-| auth/object key/security | server + SDK 相关验证 | 必须做定向 HTTP/OSS smoke，并独立 review |
-| runtime-state | server typecheck/build | 写入、重启读取、失败回滚、volume 持久化 |
+| 改动范围                 | 最小验证                                                  | 需要额外 smoke 的情况                    |
+| ------------------------ | --------------------------------------------------------- | ---------------------------------------- |
+| 仅文档/Agent 规范        | Markdown/链接 review；需要时 `pnpm format:check`          | 无                                       |
+| server 类型/纯逻辑       | server typecheck + build                                  | 路由、中间件、认证、持久化改变           |
+| admin UI                 | admin typecheck + build                                   | 路由、API 调用、生产 base/静态资源改变   |
+| SDK                      | sdk typecheck + build + consumer smoke                    | token、上传、删除或公开导出改变          |
+| root/workspace/Docker    | `pnpm typecheck` + `pnpm build` + `docker compose config` | Dockerfile/Compose 运行时改变            |
+| auth/object key/security | server + SDK 相关验证                                     | 必须做定向 HTTP/OSS smoke，并独立 review |
+| runtime-state            | server typecheck/build                                    | 写入、重启读取、失败回滚、volume 持久化  |
 
 ## Smoke 基线
 

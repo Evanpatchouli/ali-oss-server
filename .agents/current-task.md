@@ -1,45 +1,43 @@
 # Current Task
 
+Status: done
+
 ## Goal
 
-将 ali-oss-server 接入 evp-agents v3 模板，并把当前仓库的稳定架构、行为契约、开发/测试/部署流程迁入正式 `docs/` 知识库。
-
-## Done when
-
-- 根目录存在 v3 `AGENTS.md`，且项目特有约束已补充。
-- `.agents/agents/` 包含 v3 五个 vendor-neutral 角色定义。
-- `docs/` 的 context、architecture、specs、decisions、runbooks、knowledge、exec-plans 已按当前仓库事实初始化。
-- 不删除原有 `.agents/archive/`、`.agents/skills/`、`.agents/decisions.md`、`.agents/lessons.md` 历史资料。
-- 不改变产品代码、公开 API、依赖或运行行为。
+完成 Issue #1：让 `@ali-oss-server/sdk` 的安装包同时支持 Node >= 20 的 ESM `import` 与 CommonJS `require`，保留现有根公开 API，并提交实现。
 
 ## Parent task complexity
 
-- Planning complexity: S2
-- Why: 需要将通用 v3 规范映射到现有 monorepo、历史 Agent 资料和安全/发布边界，但实现本身主要是文档迁移。
+S2：需要决定双格式发布、声明文件及安装后条件解析的边界；确定方案后实现和验证可降级。
 
 ## Work units
 
-| ID | 工作单元 | 模式 | 状态 | 独立难度 | 路由 | 评级理由 / 交接产物 | 验证 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| T1 | 核对 v3 模板结构和 ali-oss-server 当前结构 | investigate | done | S0 | scout | Evidence Pack：模板目录、模块、脚本、历史决策 | GitHub 文件与 tree 检索 |
-| T2 | 决定长期知识与短期 Agent 状态的迁移边界 | decide | done | S2 | worker | 保留历史 `.agents`；新的稳定事实进入 `docs/` | 文档结构 review |
-| T3 | 写入 v3 入口、角色和项目化 docs | execute | done | S1 | fast-worker | 按确定结构进行机械文档接入 | 最终 diff review |
-| T4 | 独立检查范围、链接和事实一致性 | review | done | S0 | reviewer | 未发现 blocker；变更仅限 Agent/文档文件 | PR diff |
+| ID  | 工作单元                                | 模式        | 难度 / 路由             | 状态 | 验收                                 |
+| --- | --------------------------------------- | ----------- | ----------------------- | ---- | ------------------------------------ |
+| T1  | Issue 与 SDK 当前消费行为 triage        | investigate | S0 / scout              | done | 紧凑 Evidence Pack                   |
+| T2  | 决定 ESM/CJS 产物及类型声明结构         | decide      | S2 / worker（主 Agent） | done | Implementation Brief                 |
+| T3  | 实现双格式构建和包导出                  | execute     | S1 / fast-worker        | done | 两种产物和条件导出一致               |
+| T4  | 建立打包安装后的最小 ESM/CJS 消费测试   | execute     | S1 / fast-worker        | done | 两个独立 Node consumer 实际运行      |
+| T5  | 更新 SDK README、测试 runbook、API 契约 | execute     | S1 / fast-worker        | done | 文档与发布行为一致                   |
+| T6  | 执行 SDK 验证、检查包内容与最终 diff    | verify      | S0 / scout              | done | typecheck、build、consumer test 通过 |
+| T7  | 最终独立只读 review 并修复 blocker      | review      | reviewer                | done | 无真实 blocker                       |
 
-## Evidence / blockers
+## Evidence Pack
 
-- 当前仓库已有旧式 `.agents/` 历史资料和 `maintain-changelog` skill，但没有根 `AGENTS.md` 与正式 `docs/` v3 知识库。
-- 仓库当前没有自动化测试套件或 CI workflow；testing runbook 必须如实记录这一现状。
-- PR 复核确认 26 个变更文件全部位于 `AGENTS.md`、`.agents/`、`docs/`，没有产品代码、依赖或运行配置改动。
-- 本任务不需要运行产品构建；文档事实已与当前代码、package 脚本和仓库 tree 交叉核对。
+- Issue #1 当前 Open，要求 ESM 不回归、CommonJS 无 workaround 消费、双场景测试与 README 更新；没有关联修复 PR。
+- `apps/sdk/package.json` 为 `type: module`，`exports["."]` 仅有 `types` 和 `import`；`main` 指向 ESM。`tsconfig.json` 使用 NodeNext，只输出 ESM JS 与 `.d.ts`。
+- `src/index.ts` 的根公开运行时导出为 `AliOssServerSdk`、`createAliOssServerSdk`、`AliOssServerSdkError`，另有八个类型导出。内部相对导入带 `.js` 后缀。
+- Node 20 早期版本不能稳定使用 `require(ESM)`；即使新版本支持，现有 exports 也没有 `require` 分支。仓库原无自动化测试框架或 CI。
 
-## Implementation Briefs
+## Implementation Brief
 
-### T2
+- Decision: TypeScript 生成 `dist/*.d.ts` 的 ESM 声明和 `dist/cjs/*` 的 CommonJS 实现及声明；`dist/index.js` 是转发同一 CJS 实现的薄 ESM 入口，在 `dist/cjs/package.json` 中声明 `type: commonjs`。不引入打包器。
+- Files / interfaces: SDK package/build 配置、轻量 build 脚本、消费测试与直接相关文档；只公布包根入口。
+- Invariants: ESM 现有 import 不变；CJS `require` 可直接运行；两个入口共享公开运行时构造器；`exports` 的 import/require 分支各自指向匹配的 JS 与声明；实际实现的 source map 和两套 declaration map 路径有效；`main` 指向 CJS；`files` 包含所有产物；不改公开 API。
+- Acceptance: `npm pack` 后在临时独立 consumer 项目安装 tarball；`.mjs` 与 `.cjs` 都从包名加载并检查公开值；SDK typecheck/build 通过。
+- Do not: 改 server/admin、公开内部模块、引入大型测试框架或 eval/import workaround。
 
-- Decision: v3 以 `AGENTS.md` + `.agents/agents/` + `docs/` 为新事实入口；迁移前历史文件保留但不再作为新增长期知识的默认写入点。
-- Files / interfaces: 仅 Agent/文档文件。
-- Invariants: 不改产品代码、不删除历史、不写入真实密钥。
-- Acceptance: 新会话只读入口文档即可知道如何检索、实施、验证和写回知识。
-- Do not: 不引入 CI、测试框架、数据库或发布自动化。
-- Focused validation: PR diff + 文档交叉链接检查。
+## Result
+
+- SDK typecheck、build、安装 tarball 后的 ESM/CJS/NodeNext 消费测试和变更文件格式检查均通过。
+- Reviewer 首轮发现的构造器身份分裂及 Windows 路径带空格时的测试失效已修复；最终独立复核未发现 blocker。
