@@ -30,6 +30,7 @@
   "homepage": "https://github.com/Evanpatchouli/ali-oss-server",
   "scripts": {
     "build": "node ./scripts/build.mjs",
+    "prepack": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.cjs.json --noEmit",
     "test:consumer": "node --test test/consumer.test.mjs",
     "test:upload-stream": "node --test test/upload-stream-abort.test.mjs"

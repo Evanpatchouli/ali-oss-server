@@ -51,6 +51,14 @@ function run(command, args, options = {}) {
 test("published tarball supports ESM, CommonJS, and NodeNext declarations", async (t) => {
   t.after(async () => rm(temporaryRoot, { recursive: true, force: true }));
 
+  const distDirectory = join(sdkDirectory, "dist");
+  await rm(distDirectory, { recursive: true, force: true });
+  assert.equal(
+    existsSync(distDirectory),
+    false,
+    "pack must start without dist/"
+  );
+
   const packOutput = npmCommand(
     ["pack", "--json", "--pack-destination", scratchDirectory],
     { cwd: sdkDirectory }

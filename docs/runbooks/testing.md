@@ -46,7 +46,7 @@ pnpm --filter @ali-oss-server/sdk test:consumer
 pnpm --filter @ali-oss-server/sdk test:upload-stream
 ```
 
-`test:consumer` 使用 `npm pack` 生成 tarball，在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析；文件名案例还通过 Node `Headers` 验证打包后 SDK 构造的请求头和服务端最终 objectKey 的原样返回。它要求先有最新的 `dist/` 构建产物。SDK `test:upload-stream` 覆盖取消、token refresh 边界、无 signal 和 HTTP 错误包装，并使用本地 HTTP server 与 Node 原生 fetch 验证 in-flight abort 会中止请求且销毁输入 readable；不连接真实 OSS，同样要求先 build。`test:protocol` 检查 server 解码、非法 header 的 400 错误与服务层实际 objectKey 推导，不连接 OSS。`test:contract` 通过公共 OSS service 函数和 mock OSS I/O 验证 client objectKey 隔离、上传/删除的最终 objectKey 与错误传播；URL 断言使用已安装的 ali-oss 生成对象 URL，不连接真实 OSS。
+`test:consumer` 先移除 SDK 的 `dist/`，再使用 `npm pack` 触发 `prepack` 自动构建并生成 tarball；它在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析。文件名案例还通过 Node `Headers` 验证打包后 SDK 构造的请求头和服务端最终 objectKey 的原样返回。运行 `test:consumer` 无需提前 build。SDK `test:upload-stream` 覆盖取消、token refresh 边界、无 signal 和 HTTP 错误包装，并使用本地 HTTP server 与 Node 原生 fetch 验证 in-flight abort 会中止请求且销毁输入 readable；不连接真实 OSS，要求先 build。`test:protocol` 检查 server 解码、非法 header 的 400 错误与服务层实际 objectKey 推导，不连接 OSS。`test:contract` 通过公共 OSS service 函数和 mock OSS I/O 验证 client objectKey 隔离、上传/删除的最终 objectKey 与错误传播；URL 断言使用已安装的 ali-oss 生成对象 URL，不连接真实 OSS。
 
 容器配置：
 
