@@ -59,6 +59,33 @@ const result = await sdk.uploadStream({
 console.log(result.objectKey);
 ```
 
+Pass an `AbortSignal` to cancel a stream upload. The default `controller.abort()`
+reason rejects with a `DOMException` named `AbortError`; a custom abort reason is
+propagated as-is. The SDK destroys the input readable when an aborted upload
+settles. If token refresh is in progress, cancellation rejects this upload
+promptly without stopping the shared refresh or sending the upload request.
+
+```js
+const controller = new AbortController();
+const timeout = setTimeout(() => controller.abort(), 30_000);
+
+try {
+  await sdk.uploadStream({
+    stream: createReadStream("./large-file.bin"),
+    fileName: "large-file.bin",
+    signal: controller.signal,
+  });
+} catch (error) {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    console.log("Upload cancelled");
+  } else {
+    throw error;
+  }
+} finally {
+  clearTimeout(timeout);
+}
+```
+
 ASCII names continue to use the `x-file-name` request header. For Unicode
 names, the SDK sends `x-file-name-utf8` in the `UTF-8''` plus UTF-8 percent
 encoding format. The server decodes that value once, then applies the usual

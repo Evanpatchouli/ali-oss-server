@@ -54,6 +54,7 @@ export type UploadImageInput = {
 
 export type UploadStreamInput = {
   stream: Readable;
+  signal?: AbortSignal;
   fileName?: string;
   mimeType?: string;
   contentLength?: number;

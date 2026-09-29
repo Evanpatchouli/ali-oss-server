@@ -43,9 +43,10 @@ pnpm --filter @ali-oss-server/admin build
 pnpm --filter @ali-oss-server/sdk typecheck
 pnpm --filter @ali-oss-server/sdk build
 pnpm --filter @ali-oss-server/sdk test:consumer
+pnpm --filter @ali-oss-server/sdk test:upload-stream
 ```
 
-`test:consumer` 使用 `npm pack` 生成 tarball，在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析；文件名案例还通过 Node `Headers` 验证打包后 SDK 构造的请求头和服务端最终 objectKey 的原样返回。它要求先有最新的 `dist/` 构建产物。`test:protocol` 检查 server 解码、非法 header 的 400 错误与服务层实际 objectKey 推导，不连接 OSS。`test:contract` 通过公共 OSS service 函数和 mock OSS I/O 验证 client objectKey 隔离、上传/删除的最终 objectKey 与错误传播；URL 断言使用已安装的 ali-oss 生成对象 URL，不连接真实 OSS。
+`test:consumer` 使用 `npm pack` 生成 tarball，在独立临时目录安装后，分别运行 `.mjs` 和 `.cjs` 消费脚本，并通过 TypeScript NodeNext 检查两种模块格式的声明解析；文件名案例还通过 Node `Headers` 验证打包后 SDK 构造的请求头和服务端最终 objectKey 的原样返回。它要求先有最新的 `dist/` 构建产物。SDK `test:upload-stream` 覆盖取消、token refresh 边界、无 signal 和 HTTP 错误包装，并使用本地 HTTP server 与 Node 原生 fetch 验证 in-flight abort 会中止请求且销毁输入 readable；不连接真实 OSS，同样要求先 build。`test:protocol` 检查 server 解码、非法 header 的 400 错误与服务层实际 objectKey 推导，不连接 OSS。`test:contract` 通过公共 OSS service 函数和 mock OSS I/O 验证 client objectKey 隔离、上传/删除的最终 objectKey 与错误传播；URL 断言使用已安装的 ali-oss 生成对象 URL，不连接真实 OSS。
 
 容器配置：
 
@@ -57,15 +58,15 @@ docker compose config
 
 ## 按改动选择最小验证集
 
-| 改动范围                 | 最小验证                                                  | 需要额外 smoke 的情况                    |
-| ------------------------ | --------------------------------------------------------- | ---------------------------------------- |
-| 仅文档/Agent 规范        | Markdown/链接 review；需要时 `pnpm format:check`          | 无                                       |
-| server 类型/纯逻辑       | server typecheck + build                                  | 路由、中间件、认证、持久化改变           |
-| admin UI                 | admin typecheck + build                                   | 路由、API 调用、生产 base/静态资源改变   |
-| SDK                      | sdk typecheck + build + consumer smoke                    | token、上传、删除或公开导出改变          |
-| root/workspace/Docker    | `pnpm typecheck` + `pnpm build` + `docker compose config` | Dockerfile/Compose 运行时改变            |
-| auth/object key/security | server + SDK 相关验证                                     | 必须做定向 HTTP/OSS smoke，并独立 review |
-| runtime-state            | server typecheck/build                                    | 写入、重启读取、失败回滚、volume 持久化  |
+| 改动范围                 | 最小验证                                                    | 需要额外 smoke 的情况                    |
+| ------------------------ | ----------------------------------------------------------- | ---------------------------------------- |
+| 仅文档/Agent 规范        | Markdown/链接 review；需要时 `pnpm format:check`            | 无                                       |
+| server 类型/纯逻辑       | server typecheck + build                                    | 路由、中间件、认证、持久化改变           |
+| admin UI                 | admin typecheck + build                                     | 路由、API 调用、生产 base/静态资源改变   |
+| SDK                      | sdk typecheck + build + consumer smoke + upload-stream test | token、上传、删除或公开导出改变          |
+| root/workspace/Docker    | `pnpm typecheck` + `pnpm build` + `docker compose config`   | Dockerfile/Compose 运行时改变            |
+| auth/object key/security | server + SDK 相关验证                                       | 必须做定向 HTTP/OSS smoke，并独立 review |
+| runtime-state            | server typecheck/build                                      | 写入、重启读取、失败回滚、volume 持久化  |
 
 ## Smoke 基线
 

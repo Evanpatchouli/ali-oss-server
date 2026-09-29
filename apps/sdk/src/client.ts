@@ -169,41 +169,53 @@ export class AliOssServerSdk {
   }
 
   async uploadStream(input: UploadStreamInput): Promise<AliOssUploadResult> {
-    await this.ensureToken();
+    try {
+      input.signal?.throwIfAborted();
+      if (input.signal) {
+        await this.ensureTokenForUpload(input.signal);
+      } else {
+        await this.ensureToken();
+      }
 
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.accessToken}`,
-      "Content-Type": input.mimeType?.trim() || "application/octet-stream",
-    };
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": input.mimeType?.trim() || "application/octet-stream",
+      };
 
-    Object.assign(headers, createFileNameHeaders(input.fileName));
+      Object.assign(headers, createFileNameHeaders(input.fileName));
 
-    if (input.objectKey?.trim()) {
-      headers["x-object-key"] = input.objectKey.trim();
+      if (input.objectKey?.trim()) {
+        headers["x-object-key"] = input.objectKey.trim();
+      }
+
+      if (input.randomFilename !== undefined) {
+        headers["x-random-filename"] = String(input.randomFilename);
+      }
+
+      if (input.contentLength !== undefined) {
+        headers["content-length"] = String(input.contentLength);
+      }
+
+      const init: RequestInit & { duplex: "half" } = {
+        method: "POST",
+        headers,
+        body: input.stream as unknown as RequestInit["body"],
+        duplex: "half",
+        signal: input.signal,
+      };
+      const body = await requestJson<Partial<AliOssUploadResult>>(
+        this.fetchFn,
+        this.baseUrl,
+        "/api/oss/upload-stream",
+        init
+      );
+
+      return readUploadResult(body);
+    } finally {
+      if (input.signal?.aborted && !input.stream.destroyed) {
+        input.stream.destroy();
+      }
     }
-
-    if (input.randomFilename !== undefined) {
-      headers["x-random-filename"] = String(input.randomFilename);
-    }
-
-    if (input.contentLength !== undefined) {
-      headers["content-length"] = String(input.contentLength);
-    }
-
-    const init: RequestInit & { duplex: "half" } = {
-      method: "POST",
-      headers,
-      body: input.stream as unknown as RequestInit["body"],
-      duplex: "half",
-    };
-    const body = await requestJson<Partial<AliOssUploadResult>>(
-      this.fetchFn,
-      this.baseUrl,
-      "/api/oss/upload-stream",
-      init
-    );
-
-    return readUploadResult(body);
   }
 
   async deleteObject(objectKey: string): Promise<AliOssDeleteResult> {
@@ -239,6 +251,23 @@ export class AliOssServerSdk {
   private async ensureToken(): Promise<void> {
     if (!this.hasFreshToken()) {
       await this.refreshToken();
+    }
+  }
+
+  private async ensureTokenForUpload(signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    let onAbort: () => void = () => {};
+    const aborted = new Promise<never>((_, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+
+    try {
+      signal.throwIfAborted();
+      await Promise.race([this.ensureToken(), aborted]);
+      signal.throwIfAborted();
+    } finally {
+      signal.removeEventListener("abort", onAbort);
     }
   }
 

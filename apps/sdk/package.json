@@ -31,7 +31,8 @@
   "scripts": {
     "build": "node ./scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.cjs.json --noEmit",
-    "test:consumer": "node --test test/consumer.test.mjs"
+    "test:consumer": "node --test test/consumer.test.mjs",
+    "test:upload-stream": "node --test test/upload-stream-abort.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

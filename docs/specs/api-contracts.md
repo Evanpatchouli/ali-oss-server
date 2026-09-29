@@ -107,6 +107,9 @@ partner-a/uploads/a.png  -> partner-a/uploads/a.png
 - `x-object-key` 的既有优先级不变；提供时仍优先于文件名，最终对象路径继续遵守本规范的服务端 object key 安全与 client 隔离规则。
 - server 既检查声明的 Content-Length，也通过计数 Transform 对实际流量做大小兜底限制。
 - 上传实现使用 ali-oss `putStream`，不能先把整个流读入内存再上传。
+- SDK `uploadStream` 可接收 `AbortSignal`。signal 在 token 检查前已取消时，不发 token 或上传请求；token refresh 等待期间取消时，本次调用及时拒绝且不发上传请求，共享 refresh 继续运行。
+- signal 传给上传 fetch。上传 fetch 的取消错误按原样传播；默认 `AbortController.abort()` 产生名为 `AbortError` 的 `DOMException`，自定义 abort reason 也按原样传播。signal 已取消时，SDK 在 `uploadStream` 结束前销毁该调用传入且尚未销毁的 Node readable。
+- 未传 signal 时，`uploadStream` 保持原有行为。此取消契约不扩展至 `uploadBuffer` 或 `uploadImage`；HTTP 非成功响应仍包装为 `AliOssServerSdkError`。
 
 ## 5. 删除
 
@@ -142,6 +145,7 @@ Admin OSS 权限与业务 client 隔离不同：
 - `import` 与 `require` 条件分别提供对应模块格式的 TypeScript 声明；消费者从包名导入时应能由 NodeNext 解析到匹配声明。
 - 发布包必须包含这两个运行时入口及其声明文件；内部文件不是公共兼容承诺。
 - 公开客户端为 `AliOssServerSdk` / `createAliOssServerSdk`。
+- `UploadStreamInput.signal` 是可选的 `AbortSignal`；仅控制 `uploadStream` 的上传请求，不传播到 token 请求或共享 token refresh。
 - `AliOssServerSdkError` 也是包根公开值，两个模块系统均可导入。
 - SDK 不持有阿里云 AccessKey；只持有 ali-oss-server 的 clientId/clientSecret。
 - SDK 内部拆分时，NodeNext 相对导入继续使用 `.js` 后缀。
