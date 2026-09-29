@@ -2,6 +2,7 @@
   "name": "ali-oss-server-workspace",
   "private": true,
   "packageManager": "pnpm@11.9.0",
+  "homepage": "https://github.com/Evanpatchouli/ali-oss-server",
   "scripts": {
     "dev": "pnpm -r --parallel --filter @ali-oss-server/server --filter @ali-oss-server/admin dev",
     "build:sdk": "pnpm --filter @ali-oss-server/sdk build",
