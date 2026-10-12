@@ -6,6 +6,7 @@ export type AliOssServerSdkOptions = {
   serverBaseUrl: string;
   clientId: string;
   clientSecret: string;
+  bucket?: string;
   objectPrefix?: string;
   imageMaxBytes?: number;
   tokenRefreshBufferMs?: number;
@@ -24,7 +25,12 @@ export type AliOssUploadResult = {
 export type AliOssDeleteResult = {
   objectKey: string;
   deleted: true;
+  bucket?: string;
   clientId?: string;
+};
+
+export type DeleteObjectOptions = {
+  bucket?: string;
 };
 
 export type AliOssTokenResult = {
@@ -41,6 +47,7 @@ export type UploadBufferInput = {
   mimeType?: string;
   objectKey?: string;
   randomFilename?: boolean;
+  bucket?: string;
 };
 
 export type UploadImageInput = {
@@ -50,6 +57,7 @@ export type UploadImageInput = {
   objectKey?: string;
   objectPrefix?: string;
   maxBytes?: number;
+  bucket?: string;
 };
 
 export type UploadStreamInput = {
@@ -60,4 +68,5 @@ export type UploadStreamInput = {
   contentLength?: number;
   objectKey?: string;
   randomFilename?: boolean;
+  bucket?: string;
 };

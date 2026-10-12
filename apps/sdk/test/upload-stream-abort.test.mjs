@@ -127,6 +127,27 @@ test("upload without a signal remains successful", async () => {
   assert.equal(uploadInit.signal, undefined);
 });
 
+test("stream upload forwards a per-request bucket override", async () => {
+  let uploadHeaders;
+  const sdk = sdkWith(async (url, init) => {
+    if (url.endsWith("/api/auth/token")) return validToken();
+    uploadHeaders = new Headers(init.headers);
+    return new Response(
+      JSON.stringify({
+        objectKey: "client/file.txt",
+        url: "https://example.test/file.txt",
+        bucket: "response-bucket",
+      })
+    );
+  });
+
+  const result = await sdk.uploadStream(
+    uploadInput({ bucket: "stream-bucket" })
+  );
+  assert.equal(uploadHeaders.get("x-oss-bucket"), "stream-bucket");
+  assert.equal(result.bucket, "response-bucket");
+});
+
 test("HTTP errors remain AliOssServerSdkError values", async () => {
   const sdk = sdkWith(async (url) =>
     url.endsWith("/api/auth/token")

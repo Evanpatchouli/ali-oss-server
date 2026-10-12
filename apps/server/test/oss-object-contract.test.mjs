@@ -5,6 +5,9 @@ import test from "node:test";
 process.env.TOKEN_SECRET = "test-token-secret-0123456789";
 process.env.ADMIN_USERNAME = "test-admin";
 process.env.ADMIN_PASSWORD = "test-password";
+process.env.OSS_BUCKETS = JSON.stringify([
+  { name: "test-bucket", region: "oss-cn-test" },
+]);
 process.env.OSS_REGION = "oss-cn-test";
 process.env.OSS_BUCKET_NAME = "test-bucket";
 process.env.OSS_ACCESS_KEY_ID = "test-access-key";
@@ -74,6 +77,7 @@ test("delete normalizes relative and already-scoped keys before OSS I/O", async 
     assert.deepEqual(relative, {
       objectKey: "partner-a/uploads/a.txt",
       deleted: true,
+      bucket: "test-bucket",
     });
     assert.deepEqual(alreadyScoped, relative);
   } finally {

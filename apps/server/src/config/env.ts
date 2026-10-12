@@ -21,14 +21,93 @@ type AppConfig = {
     password: string;
   };
   oss: {
-    region: string;
-    bucket: string;
+    buckets: Array<{ name: string; region: string }>;
     accessKeyId: string;
     accessKeySecret: string;
     secure: boolean;
     maxFileSizeBytes: number;
   };
 };
+
+export type OssBucket = { name: string; region: string };
+
+export function parseOssBuckets(
+  env: Record<string, string | undefined>
+): OssBucket[] {
+  if (env.OSS_BUCKETS !== undefined) {
+    const configured = env.OSS_BUCKETS.trim();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(configured);
+    } catch {
+      throw badRequest("ENV_INVALID", "OSS_BUCKETS must be a valid JSON array");
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw badRequest("ENV_INVALID", "OSS_BUCKETS must be a non-empty array");
+    }
+    const names = new Set<string>();
+    return parsed.map((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        throw badRequest(
+          "ENV_INVALID",
+          `OSS_BUCKETS[${index}] must be an object`
+        );
+      }
+      const { name, region } = item as Record<string, unknown>;
+      if (typeof name !== "string" || typeof region !== "string") {
+        throw badRequest(
+          "ENV_INVALID",
+          `OSS_BUCKETS[${index}] must include non-empty name and region`
+        );
+      }
+      const normalizedRegion = region.trim();
+      const bucket = { name: name.trim(), region: normalizedRegion };
+      if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/u.test(bucket.name)) {
+        throw badRequest(
+          "ENV_INVALID",
+          `OSS_BUCKETS[${index}].name must be a valid OSS bucket name`
+        );
+      }
+      if (
+        !bucket.region ||
+        /[\x00-\x1F\x7F]/u.test(region) ||
+        /[\x00-\x20\x7F]/u.test(bucket.region)
+      ) {
+        throw badRequest(
+          "ENV_INVALID",
+          `OSS_BUCKETS[${index}].region must be a non-empty region name`
+        );
+      }
+      if (names.has(bucket.name)) {
+        throw badRequest(
+          "ENV_INVALID",
+          `OSS_BUCKETS contains duplicate bucket name: ${bucket.name}`
+        );
+      }
+      names.add(bucket.name);
+      return bucket;
+    });
+  }
+  return [
+    {
+      name: requiredEnvFrom(env, "OSS_BUCKET_NAME"),
+      region: requiredEnvFrom(env, "OSS_REGION"),
+    },
+  ];
+}
+
+function requiredEnvFrom(
+  env: Record<string, string | undefined>,
+  name: string
+): string {
+  const value = env[name]?.trim();
+  if (!value)
+    throw badRequest(
+      "ENV_MISSING",
+      `Missing required environment variable: ${name}`
+    );
+  return value;
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -91,8 +170,7 @@ export const config: AppConfig = {
     password: requiredEnv("ADMIN_PASSWORD"),
   },
   oss: {
-    region: requiredEnv("OSS_REGION"),
-    bucket: requiredEnv("OSS_BUCKET_NAME"),
+    buckets: parseOssBuckets(process.env),
     accessKeyId: requiredEnv("OSS_ACCESS_KEY_ID"),
     accessKeySecret: requiredEnv("OSS_ACCESS_KEY_SECRET"),
     secure: parseBoolean("OSS_SECURE", true),

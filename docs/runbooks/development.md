@@ -23,13 +23,14 @@ Windows 没有 `cp` 时直接复制 `.env.example` 为 `.env`。
 - `TOKEN_SECRET`（至少 16 字符）
 - `TOKEN_EXPIRES_IN_SECONDS`
 - `ADMIN_USERNAME` / `ADMIN_PASSWORD`
-- `OSS_REGION`
-- `OSS_BUCKET_NAME`
+- `OSS_BUCKETS`：非空 JSON 数组，每项 `{ "name": "...", "region": "..." }`，第一个为默认 Bucket；未提供时兼容 `OSS_REGION` / `OSS_BUCKET_NAME`
 - `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`
 - `OSS_SECURE`
 - `UPLOAD_MAX_FILE_SIZE_MB`
 
 不要把真实 `.env` 提交到 Git。
+
+所有 Bucket 共用 OSS 凭证；Bucket 列表修改后需要重启服务。已有部署升级时把原 Bucket 放在数组第一项，以保持未指定 Bucket 的调用方上传和删除目标不变。
 
 ## 开发模式
 

@@ -1,6 +1,7 @@
 import type {
   AdminUploadConfig,
   AdminUploadResponse,
+  AdminBucketsResponse,
   AuthClientsResponse,
   BucketObjectsResponse,
   AdminLoginResponse,
@@ -13,6 +14,7 @@ import type {
 export type {
   AdminUploadConfig,
   AdminUploadResponse,
+  AdminBucketsResponse,
   AuthClientsResponse,
   BucketObjectsResponse,
   AdminLoginResponse,
@@ -156,9 +158,20 @@ export async function fetchUploadConfig(
   });
 }
 
+export async function fetchAdminBuckets(
+  token: string
+): Promise<AdminBucketsResponse> {
+  return request<AdminBucketsResponse>("/api/admin/oss/buckets", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function uploadAdminFile(
   token: string,
   payload: {
+    bucket: string;
     directory: string;
     filename: string;
     file: File;
@@ -175,6 +188,7 @@ export async function uploadAdminFile(
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
+      "x-oss-bucket": payload.bucket,
     },
     body: formData,
   });
@@ -183,6 +197,7 @@ export async function uploadAdminFile(
 export async function fetchAdminBucketObjects(
   token: string,
   params: {
+    bucket: string;
     prefix: string;
     delimiter: string;
     maxKeys: number;
@@ -204,6 +219,7 @@ export async function fetchAdminBucketObjects(
     {
       headers: {
         Authorization: `Bearer ${token}`,
+        "x-oss-bucket": params.bucket,
       },
     }
   );

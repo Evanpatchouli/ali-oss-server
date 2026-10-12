@@ -5,7 +5,10 @@ import {
   Button,
   Chip,
   Container,
+  FormControl,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Tab,
   Tabs,
@@ -17,6 +20,10 @@ import type { IpAllowlistResponse } from "../types/api";
 import type { Session } from "../types/admin";
 
 type AdminShellProps = {
+  buckets: Array<{ name: string; region: string }>;
+  bucketLoading: boolean;
+  selectedBucket: string;
+  bucketSelectionDisabled: boolean;
   authClientCount: number;
   children: React.ReactNode;
   errorMessage: string | null;
@@ -33,6 +40,7 @@ type AdminShellProps = {
   onLogout: () => void;
   onRefresh: () => void;
   onTabChange: (value: number) => void;
+  onBucketChange: (bucket: string) => void;
 };
 
 export function AdminShell(props: AdminShellProps) {
@@ -41,6 +49,10 @@ export function AdminShell(props: AdminShellProps) {
   }`;
   const {
     authClientCount,
+    buckets,
+    bucketLoading,
+    selectedBucket,
+    bucketSelectionDisabled,
     children,
     errorMessage,
     globalEnabled,
@@ -56,6 +68,7 @@ export function AdminShell(props: AdminShellProps) {
     onLogout,
     onRefresh,
     onTabChange,
+    onBucketChange,
   } = props;
   const ipStatusLabel = ipStatus.enabled
     ? `${ipStatus.ips.length} 个 IP`
@@ -74,14 +87,70 @@ export function AdminShell(props: AdminShellProps) {
         }}
       >
         <Toolbar sx={{ gap: 2, flexWrap: "wrap", py: 1 }}>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography
-              variant="overline"
-              sx={{ color: "primary.main", letterSpacing: "0.16em" }}
-            >
-              管理端
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="h6" sx={{ lineHeight: 1.25 }}>
+              Ali OSS ADMIN
             </Typography>
-            <Typography variant="h6">Ali OSS ADMIN</Typography>
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25 }}
+            >
+              <Typography
+                variant="overline"
+                sx={{
+                  color: "primary.main",
+                  letterSpacing: "0.16em",
+                  lineHeight: 1.5,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                管理端
+              </Typography>
+              <FormControl
+                size="small"
+                sx={{ minWidth: 120, maxWidth: { xs: 180, sm: 220 } }}
+              >
+                <Select
+                  aria-label="当前 Bucket"
+                  title={selectedBucket || "当前 Bucket"}
+                  value={selectedBucket}
+                  displayEmpty
+                  sx={{
+                    height: 24,
+                    fontSize: 12,
+                    borderRadius: 1.5,
+                    "& .MuiSelect-select": {
+                      py: 0.25,
+                      pl: 1,
+                      pr: "28px !important",
+                    },
+                    "& .MuiSelect-icon": { fontSize: 18, right: 5 },
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "rgba(15, 23, 42, 0.16)",
+                    },
+                  }}
+                  disabled={
+                    bucketSelectionDisabled ||
+                    bucketLoading ||
+                    buckets.length === 0
+                  }
+                  onChange={(event) => onBucketChange(event.target.value)}
+                  renderValue={(value) => {
+                    const bucket = buckets.find((item) => item.name === value);
+                    return bucket
+                      ? bucket.name
+                      : bucketLoading
+                        ? "加载 Bucket…"
+                        : "Bucket 不可用";
+                  }}
+                >
+                  {buckets.map((bucket) => (
+                    <MenuItem key={bucket.name} value={bucket.name} dense>
+                      {bucket.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
           <Chip
             label={`管理员：${session.username}`}

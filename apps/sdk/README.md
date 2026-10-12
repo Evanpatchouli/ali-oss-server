@@ -36,6 +36,41 @@ The package root exports `AliOssServerSdk`, `createAliOssServerSdk`, and
 `AliOssServerSdkError` for both module systems. TypeScript consumers can import
 the SDK and its exported types from the same package root.
 
+## Select a bucket
+
+Set an optional instance default `bucket`, or override it for a single upload or
+delete. All buckets share the server's OSS credentials; callers only provide the
+bucket name, and the server resolves its region.
+
+```js
+const sdk = new AliOssServerSdk({
+  serverBaseUrl: "http://localhost:9512",
+  clientId: "your-client-id",
+  clientSecret: "your-client-secret",
+  bucket: "assets-prod",
+});
+
+const result = await sdk.uploadBuffer({
+  buffer: Buffer.from("example"),
+  fileName: "example.txt",
+  bucket: "archive-prod",
+});
+
+await sdk.deleteObject(result.objectKey, { bucket: result.bucket });
+```
+
+The `bucket` input also works with `uploadImage` and `uploadStream`. A per-call
+bucket takes precedence over the instance default. If neither is supplied, the
+SDK sends no bucket header and the server uses its first configured bucket;
+existing caller code continues to work. Explicit empty names are rejected.
+Selecting a bucket requires a server with multi-bucket support; omission keeps
+compatibility with older servers. A delete result may include `bucket`, while
+older servers omit it.
+
+Store both `result.bucket` and `result.objectKey`: the same object key can exist
+in multiple buckets. Each business operation remains confined to the caller's
+`clientId/` directory inside the selected bucket.
+
 ## Upload a stream
 
 `uploadStream` accepts a Node.js readable stream. The SDK supports Unicode file

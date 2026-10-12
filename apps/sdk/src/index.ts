@@ -1,7 +1,4 @@
-export {
-  AliOssServerSdk,
-  createAliOssServerSdk,
-} from "./client.js";
+export { AliOssServerSdk, createAliOssServerSdk } from "./client.js";
 export { AliOssServerSdkError } from "./errors.js";
 export type {
   AliOssDeleteResult,
@@ -9,6 +6,7 @@ export type {
   AliOssTokenResult,
   AliOssUploadResult,
   BinaryInput,
+  DeleteObjectOptions,
   UploadBufferInput,
   UploadImageInput,
   UploadStreamInput,

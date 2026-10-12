@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Readable } from "node:stream";
 
-import client from "../core/client.js";
+import { getOssClient } from "../core/client.js";
 import { config } from "../config/env.js";
 import { badRequest } from "../utils/http-error.js";
 
@@ -37,6 +37,7 @@ export type BucketObjectsPage = {
  * Uploads a local file path to Aliyun OSS with a validated object key.
  */
 export async function uploadLocalFile(input: {
+  bucket?: string;
   clientId: string;
   objectKey?: string;
   randomFilename?: boolean;
@@ -44,6 +45,7 @@ export async function uploadLocalFile(input: {
   originalFilename?: string | null;
   mimeType?: string | null;
 }): Promise<UploadedObject> {
+  const client = getOssClient(input.bucket);
   const objectKey = buildClientUploadObjectKey({
     clientId: input.clientId,
     objectKey: input.objectKey ?? getOriginalFilename(input.originalFilename),
@@ -57,18 +59,20 @@ export async function uploadLocalFile(input: {
     }
   );
 
-  return buildUploadedObject(result.name);
+  return buildUploadedObject(result.name, input.bucket, client);
 }
 
 /**
  * Uploads a local file path to Aliyun OSS for admin-only operations.
  */
 export async function uploadAdminLocalFile(input: {
+  bucket?: string;
   objectKey?: string;
   localFilePath: string;
   originalFilename?: string | null;
   mimeType?: string | null;
 }): Promise<UploadedObject> {
+  const client = getOssClient(input.bucket);
   const objectKey = buildAdminUploadObjectKey(
     input.objectKey ?? getOriginalFilename(input.originalFilename)
   );
@@ -80,18 +84,20 @@ export async function uploadAdminLocalFile(input: {
     }
   );
 
-  return buildUploadedObject(result.name);
+  return buildUploadedObject(result.name, input.bucket, client);
 }
 
 /**
  * Lists objects in the configured OSS bucket for admin-only operations.
  */
 export async function listAdminBucketObjects(input: {
+  bucket?: string;
   prefix?: string;
   delimiter?: string;
   continuationToken?: string;
   maxKeys?: number;
 }): Promise<BucketObjectsPage> {
+  const client = getOssClient(input.bucket);
   const prefix = normalizeOptionalListPath(input.prefix, "prefix");
   const delimiter = normalizeOptionalDelimiter(input.delimiter);
   const continuationToken = normalizeOptionalToken(input.continuationToken);
@@ -108,7 +114,7 @@ export async function listAdminBucketObjects(input: {
   >;
 
   return {
-    bucket: config.oss.bucket,
+    bucket: input.bucket ?? config.oss.buckets[0].name,
     prefix,
     delimiter,
     maxKeys,
@@ -117,7 +123,7 @@ export async function listAdminBucketObjects(input: {
     nextContinuationToken:
       readNullableString(result.nextContinuationToken) ??
       readNullableString(result.NextContinuationToken),
-    objects: readObjects(result.objects),
+    objects: readObjects(result.objects, client),
     prefixes: readPrefixes(result.prefixes),
   };
 }
@@ -126,6 +132,7 @@ export async function listAdminBucketObjects(input: {
  * Uploads a request stream to Aliyun OSS with a validated object key.
  */
 export async function uploadStream(input: {
+  bucket?: string;
   clientId: string;
   objectKey?: string;
   randomFilename?: boolean;
@@ -134,6 +141,7 @@ export async function uploadStream(input: {
   mimeType?: string;
   contentLength?: number;
 }): Promise<UploadedObject> {
+  const client = getOssClient(input.bucket);
   const objectKey = buildStreamUploadObjectKey(input);
   const options = {} as NonNullable<Parameters<typeof client.putStream>[2]>;
 
@@ -147,7 +155,7 @@ export async function uploadStream(input: {
 
   const result = await client.putStream(objectKey, input.stream, options);
 
-  return buildUploadedObject(result.name);
+  return buildUploadedObject(result.name, input.bucket, client);
 }
 
 /** Builds the same validated object key used by stream uploads, without OSS I/O. */
@@ -168,9 +176,11 @@ export function buildStreamUploadObjectKey(input: {
  * Deletes a single object from Aliyun OSS.
  */
 export async function deleteObject(input: {
+  bucket?: string;
   clientId: string;
   objectKey: string;
-}): Promise<{ objectKey: string; deleted: true }> {
+}): Promise<{ objectKey: string; deleted: true; bucket: string }> {
+  const client = getOssClient(input.bucket);
   const normalizedObjectKey = resolveClientObjectKey(
     input.clientId,
     input.objectKey
@@ -180,6 +190,7 @@ export async function deleteObject(input: {
   return {
     objectKey: normalizedObjectKey,
     deleted: true,
+    bucket: input.bucket ?? config.oss.buckets[0].name,
   };
 }
 
@@ -358,11 +369,15 @@ function getOriginalFilename(originalFilename?: string | null): string {
   return filename || "file";
 }
 
-function buildUploadedObject(objectKey: string): UploadedObject {
+function buildUploadedObject(
+  objectKey: string,
+  bucket: string | undefined,
+  client: ReturnType<typeof getOssClient>
+): UploadedObject {
   return {
     objectKey,
     url: client.generateObjectUrl(objectKey),
-    bucket: config.oss.bucket,
+    bucket: bucket ?? config.oss.buckets[0].name,
   };
 }
 
@@ -377,7 +392,10 @@ function validateObjectKeyLength(objectKey: string): string {
   return objectKey;
 }
 
-function readObjects(value: unknown): BucketObjectSummary[] {
+function readObjects(
+  value: unknown,
+  client: ReturnType<typeof getOssClient>
+): BucketObjectSummary[] {
   if (!Array.isArray(value)) {
     return [];
   }

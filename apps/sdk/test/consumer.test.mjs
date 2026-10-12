@@ -199,6 +199,7 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
       stream: new Blob(["x"]).stream(),
     });
     assert.equal(uploadResult.objectKey, `client/${fileName}`);
+    assert.equal(uploadHeaders.has("x-oss-bucket"), false);
 
     if (/^[\x20-\x7E]+$/u.test(fileName)) {
       assert.equal(uploadHeaders.get("x-file-name"), fileName);
@@ -215,6 +216,75 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
       assert.equal(uploadHeaders.has("x-file-name"), false);
     }
   }
+
+  const bucketRequests = [];
+  const bucketSdk = new AliOssServerSdk({
+    serverBaseUrl: "http://localhost:9512",
+    clientId: "client",
+    clientSecret: "secret",
+    bucket: " default-bucket ",
+    fetch: async (url, init) => {
+      if (url.endsWith("/api/auth/token")) {
+        return new Response(
+          JSON.stringify({
+            tokenType: "Bearer",
+            accessToken: "test-token",
+            expiresIn: 3600,
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            clientId: "client",
+          })
+        );
+      }
+
+      bucketRequests.push({
+        headers: new Headers(init.headers),
+        body: init.body,
+      });
+      return new Response(
+        JSON.stringify({
+          objectKey: "client/file",
+          url: "https://example.test/file",
+          bucket: "response-bucket",
+        })
+      );
+    },
+  });
+  const defaultUpload = await bucketSdk.uploadBuffer({
+    buffer: new Uint8Array([1]),
+  });
+  assert.equal(defaultUpload.bucket, "response-bucket");
+  assert.equal(bucketRequests[0].headers.get("x-oss-bucket"), "default-bucket");
+  const overriddenUpload = await bucketSdk.uploadBuffer({
+    buffer: new Uint8Array([1]),
+    bucket: " request-bucket ",
+  });
+  assert.equal(overriddenUpload.bucket, "response-bucket");
+  assert.equal(bucketRequests[1].headers.get("x-oss-bucket"), "request-bucket");
+  await bucketSdk.uploadImage({
+    buffer: new Uint8Array([1]),
+    mimeType: "image/png",
+    bucket: "image-bucket",
+  });
+  assert.equal(bucketRequests[2].headers.get("x-oss-bucket"), "image-bucket");
+
+  let invalidBucketTokenRequested = false;
+  const invalidBucketSdk = new AliOssServerSdk({
+    serverBaseUrl: "http://localhost:9512",
+    clientId: "client",
+    clientSecret: "secret",
+    fetch: async () => {
+      invalidBucketTokenRequested = true;
+      return new Response("{}", { status: 500 });
+    },
+  });
+  await assert.rejects(
+    invalidBucketSdk.uploadBuffer({
+      buffer: new Uint8Array([1]),
+      bucket: "  ",
+    }),
+    /bucket is required/
+  );
+  assert.equal(invalidBucketTokenRequested, false);
 
   const deleteRequests = [];
   const deleteSdk = new AliOssServerSdk({
@@ -234,11 +304,19 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
         );
       }
 
-      deleteRequests.push({ url, body: JSON.parse(init.body) });
+      const requestBody = JSON.parse(init.body);
+      deleteRequests.push({
+        url,
+        body: requestBody,
+        bucket: new Headers(init.headers).get("x-oss-bucket"),
+      });
       return new Response(
         JSON.stringify({
-          objectKey: "client/uploads/a.txt",
+          objectKey: `client/${requestBody.objectKey}`,
           deleted: true,
+          ...(requestBody.objectKey.endsWith("a.txt")
+            ? { bucket: "server-bucket" }
+            : {}),
           clientId: "client",
         })
       );
@@ -249,19 +327,28 @@ test("published tarball supports ESM, CommonJS, and NodeNext declarations", asyn
     {
       url: "http://localhost:9512/api/oss/object",
       body: { objectKey: "uploads/a.txt" },
+      bucket: null,
     },
   ]);
   assert.deepEqual(deleteResult, {
     objectKey: "client/uploads/a.txt",
     deleted: true,
+    bucket: "server-bucket",
     clientId: "client",
   });
+
+  const legacyDeleteResult = await deleteSdk.deleteObject("uploads/b.txt", {
+    bucket: "delete-bucket",
+  });
+  assert.equal(deleteRequests[1].bucket, "delete-bucket");
+  assert.deepEqual(deleteRequests[1].body, { objectKey: "uploads/b.txt" });
+  assert.equal("bucket" in legacyDeleteResult, false);
 
   const esmTypesPath = join(consumerDirectory, "consumer.mts");
   const cjsTypesPath = join(consumerDirectory, "consumer.cts");
   await writeFile(
     esmTypesPath,
-    `import { AliOssServerSdk, createAliOssServerSdk, AliOssServerSdkError } from "${packageName}";\nimport type { AliOssServerSdkOptions } from "${packageName}";\nconst options: AliOssServerSdkOptions = { serverBaseUrl: "http://localhost:9512", clientId: "client", clientSecret: "secret" };\nconst sdk: AliOssServerSdk = createAliOssServerSdk(options);\nconst error: AliOssServerSdkError = new AliOssServerSdkError("failure");\nvoid sdk; void error;\n`
+    `import { AliOssServerSdk, createAliOssServerSdk, AliOssServerSdkError } from "${packageName}";\nimport type { AliOssServerSdkOptions, UploadBufferInput, UploadImageInput, UploadStreamInput, DeleteObjectOptions } from "${packageName}";\nconst options: AliOssServerSdkOptions = { serverBaseUrl: "http://localhost:9512", clientId: "client", clientSecret: "secret", bucket: "default" };\nconst sdk: AliOssServerSdk = createAliOssServerSdk(options);\nconst error: AliOssServerSdkError = new AliOssServerSdkError("failure");\nconst buffer: UploadBufferInput = { buffer: new Uint8Array(), bucket: "one" };\nconst image: UploadImageInput = { buffer: new Uint8Array(), mimeType: "image/png", bucket: "two" };\nconst stream: UploadStreamInput = { stream: undefined as never, bucket: "three" };\nconst deletion: DeleteObjectOptions = { bucket: "four" };\nvoid sdk; void error; void buffer; void image; void stream; void deletion;\n`
   );
   await writeFile(
     cjsTypesPath,

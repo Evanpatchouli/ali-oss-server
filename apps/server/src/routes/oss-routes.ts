@@ -27,6 +27,7 @@ import {
   readRequiredStringField,
 } from "../utils/request.js";
 import { readStreamFileName } from "../utils/file-name-header.js";
+import { resolveRequestBucket } from "../utils/bucket-request.js";
 
 type UploadedFile = {
   filepath?: string;
@@ -43,13 +44,18 @@ export function createOssRouter(): Router {
 
   router.post("/upload", authenticate(), async (ctx) => {
     const file = readUploadedFile(readRequestFiles(ctx));
-    const body = readOptionalObjectBody(ctx);
-    const objectKey = readOptionalStringField(body, "objectKey");
-    const randomFilename =
-      readOptionalBooleanField(body, "randomFilename") ?? false;
-
     try {
+      const body = readOptionalObjectBody(ctx);
+      const bucket = resolveRequestBucket({
+        headers: ctx.req.headers,
+        rawHeaders: ctx.req.rawHeaders,
+        body,
+      });
+      const objectKey = readOptionalStringField(body, "objectKey");
+      const randomFilename =
+        readOptionalBooleanField(body, "randomFilename") ?? false;
       const uploaded = await uploadLocalFile({
+        bucket,
         clientId: readAuthenticatedClientId(ctx),
         objectKey,
         randomFilename,
@@ -70,6 +76,10 @@ export function createOssRouter(): Router {
 
   router.post("/upload-stream", authenticate(), async (ctx) => {
     assertSupportedStreamContentType(ctx);
+    const bucket = resolveRequestBucket({
+      headers: ctx.req.headers,
+      rawHeaders: ctx.req.rawHeaders,
+    });
 
     const contentLength = readOptionalContentLength(ctx);
     if (
@@ -80,6 +90,7 @@ export function createOssRouter(): Router {
     }
 
     const uploaded = await uploadStream({
+      bucket,
       clientId: readAuthenticatedClientId(ctx),
       objectKey: readOptionalHeader(ctx, "x-object-key"),
       randomFilename:
@@ -105,8 +116,14 @@ export function createOssRouter(): Router {
   router.delete("/object", authenticate(), async (ctx) => {
     const body = readObjectBody(ctx);
     const objectKey = readRequiredStringField(body, "objectKey");
+    const bucket = resolveRequestBucket({
+      headers: ctx.req.headers,
+      rawHeaders: ctx.req.rawHeaders,
+      body,
+    });
     ctx.body = {
       ...(await deleteObject({
+        bucket,
         clientId: readAuthenticatedClientId(ctx),
         objectKey,
       })),

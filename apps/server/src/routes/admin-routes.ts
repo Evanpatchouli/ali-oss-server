@@ -28,6 +28,7 @@ import { authenticateAdminUser } from "../services/admin-auth-service.js";
 import { badRequest } from "../utils/http-error.js";
 import { readObjectBody, readRequiredStringField } from "../utils/request.js";
 import { signAdminAccessToken } from "../utils/token.js";
+import { resolveRequestBucket } from "../utils/bucket-request.js";
 
 type UploadedFile = {
   filepath?: string;
@@ -44,6 +45,13 @@ export function createAdminRouter(): Router {
   router.get("/upload-config", authenticateAdmin(), (ctx) => {
     ctx.body = {
       maxFileSizeBytes: config.oss.maxFileSizeBytes,
+    };
+  });
+
+  router.get("/oss/buckets", authenticateAdmin(), (ctx) => {
+    ctx.body = {
+      buckets: config.oss.buckets,
+      defaultBucket: config.oss.buckets[0].name,
     };
   });
 
@@ -117,11 +125,16 @@ export function createAdminRouter(): Router {
 
   router.post("/oss/upload", authenticateAdmin(), async (ctx) => {
     const file = readUploadedFile(readRequestFiles(ctx));
-    const body = readObjectBody(ctx);
-    const objectKey = readRequiredStringField(body, "objectKey");
-
     try {
+      const body = readObjectBody(ctx);
+      const bucket = resolveRequestBucket({
+        headers: ctx.req.headers,
+        rawHeaders: ctx.req.rawHeaders,
+        body,
+      });
+      const objectKey = readRequiredStringField(body, "objectKey");
       const uploaded = await uploadAdminLocalFile({
+        bucket,
         objectKey,
         localFilePath: file.filepath,
         originalFilename: file.originalFilename,
@@ -136,7 +149,12 @@ export function createAdminRouter(): Router {
   });
 
   router.get("/oss/objects", authenticateAdmin(), async (ctx) => {
+    const bucket = resolveRequestBucket({
+      headers: ctx.req.headers,
+      rawHeaders: ctx.req.rawHeaders,
+    });
     ctx.body = await listAdminBucketObjects({
+      bucket,
       prefix: readOptionalQueryString(ctx.query.prefix, "prefix"),
       delimiter: readOptionalQueryString(ctx.query.delimiter, "delimiter"),
       continuationToken: readOptionalQueryString(
@@ -183,9 +201,9 @@ export function createAdminRouter(): Router {
   return router;
 }
 
-function buildAuthClientsResponse(
-  clients = getAuthClients()
-): { clients: Array<{ clientId: string }> } {
+function buildAuthClientsResponse(clients = getAuthClients()): {
+  clients: Array<{ clientId: string }>;
+} {
   return {
     clients: clients.map((client) => ({ clientId: client.clientId })),
   };

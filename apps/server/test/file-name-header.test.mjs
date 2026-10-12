@@ -64,6 +64,9 @@ test("keeps the legacy filename header literal and rejects ambiguous or invalid 
   process.env.TOKEN_SECRET = "test-token-secret-0123456789";
   process.env.ADMIN_USERNAME = "test-admin";
   process.env.ADMIN_PASSWORD = "test-password";
+  process.env.OSS_BUCKETS = JSON.stringify([
+    { name: "test-bucket", region: "oss-cn-test" },
+  ]);
   process.env.OSS_REGION = "oss-cn-test";
   process.env.OSS_BUCKET_NAME = "test-bucket";
   process.env.OSS_ACCESS_KEY_ID = "test-access-key";

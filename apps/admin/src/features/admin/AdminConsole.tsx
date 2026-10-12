@@ -11,6 +11,7 @@ import {
 import {
   createAuthClient,
   deleteAuthClient,
+  fetchAdminBuckets,
   fetchAdminBucketObjects,
   fetchAuthClients,
   fetchIpAllowlist,
@@ -32,6 +33,7 @@ import { RateLimitPanel } from "../../components/RateLimitPanel";
 import { VersionLogPanel } from "../../components/VersionLogPanel";
 import type {
   AdminUploadConfig,
+  AdminBucketsResponse,
   AdminUploadResponse,
   AuthClientsResponse,
   BucketObjectsResponse,
@@ -59,6 +61,7 @@ const adminTabs = [
 ] as const;
 
 const defaultBucketMaxKeys = "10";
+const selectedBucketStorageKey = "ali-oss-admin-selected-bucket";
 
 type PageLoadingTarget =
   | "refresh"
@@ -70,9 +73,14 @@ type PageLoadingTarget =
 
 export function AdminConsole() {
   const location = useLocation();
+  const pathnameRef = useRef(location.pathname);
+  pathnameRef.current = location.pathname;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const lastAutoBucketQueryKey = useRef<string | null>(null);
+  const bucketListingGeneration = useRef(0);
+  const bucketMetadataGeneration = useRef(0);
+  const uploadGeneration = useRef(0);
   const [session, setSession] = useState<Session | null>(() =>
     readStoredSession()
   );
@@ -104,6 +112,13 @@ export function AdminConsole() {
     Array<{ method: string; path: string }>
   >([]);
   const [routePreset, setRoutePreset] = useState("");
+  const [adminBuckets, setAdminBuckets] = useState<
+    AdminBucketsResponse["buckets"]
+  >([]);
+  const [selectedBucket, setSelectedBucket] = useState("");
+  const selectedBucketRef = useRef("");
+  const adminBucketsRef = useRef<AdminBucketsResponse["buckets"]>([]);
+  const [bucketLoading, setBucketLoading] = useState(false);
   const routeBucketPrefix = parseBucketPrefixFromPath(location.pathname);
   const routeBucketMaxKeys =
     searchParams.get("maxKeys") ?? defaultBucketMaxKeys;
@@ -138,9 +153,13 @@ export function AdminConsole() {
     }
 
     void refreshDashboard(session.token);
+    void loadAdminBuckets(session.token);
     void fetchUploadConfig(session.token)
       .then(setUploadConfig)
       .catch(() => setUploadConfig(null));
+    return () => {
+      bucketMetadataGeneration.current += 1;
+    };
   }, [session]);
 
   useEffect(() => {
@@ -164,11 +183,12 @@ export function AdminConsole() {
 
     const autoQueryKey = [
       session.token,
+      selectedBucket,
       location.pathname,
       routeBucketMaxKeys,
       bucketDelimiter,
     ].join("\n");
-    if (lastAutoBucketQueryKey.current === autoQueryKey) {
+    if (!selectedBucket || lastAutoBucketQueryKey.current === autoQueryKey) {
       return;
     }
 
@@ -190,6 +210,7 @@ export function AdminConsole() {
     routeBucketMaxKeys,
     routeBucketPrefix,
     session,
+    selectedBucket,
   ]);
 
   const activeIpCount = useMemo(
@@ -226,6 +247,57 @@ export function AdminConsole() {
       handleRequestError(error);
     } finally {
       setPageLoadingTarget(null);
+    }
+  }
+
+  async function loadAdminBuckets(token: string) {
+    const generation = ++bucketMetadataGeneration.current;
+    setBucketLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetchAdminBuckets(token);
+      if (generation !== bucketMetadataGeneration.current) return;
+
+      const currentBucket = selectedBucketRef.current;
+      const savedBucket = currentBucket
+        ? ""
+        : (window.sessionStorage.getItem(selectedBucketStorageKey) ?? "");
+      const preferredBucket = currentBucket || savedBucket;
+      const nextBucket = response.buckets.some(
+        (bucket) => bucket.name === preferredBucket
+      )
+        ? preferredBucket
+        : response.defaultBucket;
+      const validBucket = response.buckets.some(
+        (bucket) => bucket.name === nextBucket
+      )
+        ? nextBucket
+        : "";
+
+      adminBucketsRef.current = response.buckets;
+      setAdminBuckets(response.buckets);
+      if (currentBucket && currentBucket !== validBucket) {
+        resetBucketScopedState(isBucketObjectsPath(pathnameRef.current));
+      }
+      selectedBucketRef.current = validBucket;
+      setSelectedBucket(validBucket);
+      if (validBucket) {
+        window.sessionStorage.setItem(selectedBucketStorageKey, validBucket);
+      }
+    } catch (error) {
+      if (generation === bucketMetadataGeneration.current) {
+        if (adminBucketsRef.current.length === 0) {
+          setAdminBuckets([]);
+          selectedBucketRef.current = "";
+          setSelectedBucket("");
+        }
+        handleRequestError(error);
+      }
+    } finally {
+      if (generation === bucketMetadataGeneration.current) {
+        setBucketLoading(false);
+      }
     }
   }
 
@@ -403,31 +475,42 @@ export function AdminConsole() {
   }
 
   async function handleUploadFile() {
-    if (!session || !selectedUploadFile) {
+    if (!session || !selectedUploadFile || !selectedBucket) {
       return;
     }
+
+    const uploadBucket = selectedBucket;
+    const uploadToken = session.token;
 
     if (!uploadFilename.trim()) {
       setErrorMessage("请输入目标文件名。");
       return;
     }
 
+    const generation = ++uploadGeneration.current;
     setUploadPending(true);
     setErrorMessage(null);
     setUploadResult(null);
 
     try {
-      const response = await uploadAdminFile(session.token, {
+      const response = await uploadAdminFile(uploadToken, {
+        bucket: uploadBucket,
         directory: uploadDirectory,
         filename: uploadFilename,
         file: selectedUploadFile,
       });
-      setUploadResult(response);
-      setMessage(`文件已上传：${response.objectKey}`);
+      if (generation === uploadGeneration.current) {
+        setUploadResult(response);
+        setMessage(`文件已上传：${response.objectKey}`);
+      }
     } catch (error) {
-      handleRequestError(error);
+      if (generation === uploadGeneration.current) {
+        handleRequestError(error);
+      }
     } finally {
-      setUploadPending(false);
+      if (generation === uploadGeneration.current) {
+        setUploadPending(false);
+      }
     }
   }
 
@@ -511,6 +594,10 @@ export function AdminConsole() {
       return;
     }
 
+    if (!selectedBucket) {
+      return;
+    }
+
     const normalizedMaxKeys = input.maxKeys.trim();
     if (!/^\d+$/u.test(normalizedMaxKeys)) {
       setErrorMessage("每页数量必须是 1 到 1000 之间的整数。");
@@ -523,27 +610,36 @@ export function AdminConsole() {
       return;
     }
 
+    const generation = ++bucketListingGeneration.current;
+    const requestBucket = selectedBucket;
     setBucketListingPending(true);
     setBucketListingTarget(input.loadingTarget ?? "search");
     setErrorMessage(null);
 
     try {
       const response = await fetchAdminBucketObjects(session.token, {
+        bucket: requestBucket,
         prefix: input.prefix,
         delimiter: input.delimiter,
         maxKeys,
         continuationToken: input.continuationToken,
       });
-      setBucketObjectsResult(response);
-      setBucketPageIndex(input.pageIndex);
-      if (input.resetTokens) {
-        setBucketPageTokens([""]);
+      if (generation === bucketListingGeneration.current) {
+        setBucketObjectsResult(response);
+        setBucketPageIndex(input.pageIndex);
+        if (input.resetTokens) {
+          setBucketPageTokens([""]);
+        }
       }
     } catch (error) {
-      handleRequestError(error);
+      if (generation === bucketListingGeneration.current) {
+        handleRequestError(error);
+      }
     } finally {
-      setBucketListingPending(false);
-      setBucketListingTarget(null);
+      if (generation === bucketListingGeneration.current) {
+        setBucketListingPending(false);
+        setBucketListingTarget(null);
+      }
     }
   }
 
@@ -613,12 +709,20 @@ export function AdminConsole() {
   }
 
   function handleLogout() {
+    invalidateUpload();
+    bucketListingGeneration.current += 1;
+    bucketMetadataGeneration.current += 1;
     clearStoredSession();
     setSession(null);
     setRouteRules([]);
     setKnownRoutes([]);
     setPageLoadingTarget(null);
     setBucketListingTarget(null);
+    setAdminBuckets([]);
+    adminBucketsRef.current = [];
+    selectedBucketRef.current = "";
+    setSelectedBucket("");
+    setBucketLoading(false);
     nextBucketListingTarget.current = null;
     setBucketPrefix("");
     setBucketDelimiter("/");
@@ -629,6 +733,7 @@ export function AdminConsole() {
     setUploadDirectory("");
     setSelectedUploadFile(null);
     setUploadFilename("");
+    setUploadPending(false);
     setUploadResult(null);
     setIpDraft("");
     setIpStatus({ ips: [], enabled: false });
@@ -672,6 +777,7 @@ export function AdminConsole() {
   function handleRequestError(error: unknown) {
     const nextMessage = error instanceof Error ? error.message : "请求失败";
     if (/token/i.test(nextMessage) || /401/.test(nextMessage)) {
+      invalidateUpload();
       clearStoredSession();
       setSession(null);
     }
@@ -681,6 +787,43 @@ export function AdminConsole() {
 
   function navigateToBucketObjects(prefix: string, maxKeys: string) {
     navigate(buildBucketObjectsLocation(prefix, maxKeys));
+  }
+
+  function handleBucketChange(bucket: string) {
+    if (
+      bucketLoading ||
+      !adminBucketsRef.current.some((item) => item.name === bucket) ||
+      bucket === selectedBucketRef.current
+    ) {
+      return;
+    }
+    selectedBucketRef.current = bucket;
+    setSelectedBucket(bucket);
+    window.sessionStorage.setItem(selectedBucketStorageKey, bucket);
+    resetBucketScopedState(isBucketObjectsPath(location.pathname));
+  }
+
+  function resetBucketScopedState(navigateToRoot: boolean) {
+    invalidateUpload();
+    bucketListingGeneration.current += 1;
+    lastAutoBucketQueryKey.current = null;
+    setBucketPrefix("");
+    setBucketObjectsResult(null);
+    setBucketPageTokens([""]);
+    setBucketPageIndex(0);
+    setBucketListingPending(false);
+    setBucketListingTarget(null);
+    setUploadDirectory("");
+    setUploadResult(null);
+    setMessage(null);
+    if (navigateToRoot) {
+      navigateToBucketObjects("", bucketMaxKeys);
+    }
+  }
+
+  function invalidateUpload() {
+    uploadGeneration.current += 1;
+    setUploadPending(false);
   }
 
   function updateBucketMaxKeysInUrl(value: string) {
@@ -710,6 +853,10 @@ export function AdminConsole() {
   return (
     <AdminShell
       authClientCount={authClients.length}
+      buckets={adminBuckets}
+      bucketLoading={bucketLoading}
+      selectedBucket={selectedBucket}
+      bucketSelectionDisabled={uploadPending}
       errorMessage={errorMessage}
       globalEnabled={globalEnabled}
       ipStatus={ipStatus}
@@ -722,8 +869,12 @@ export function AdminConsole() {
       onDismissError={() => setErrorMessage(null)}
       onDismissMessage={() => setMessage(null)}
       onLogout={handleLogout}
-      onRefresh={() => void refreshDashboard(session.token)}
+      onRefresh={() => {
+        void refreshDashboard(session.token);
+        void loadAdminBuckets(session.token);
+      }}
       onTabChange={(value) => navigate(adminTabs[value].path)}
+      onBucketChange={handleBucketChange}
     >
       <Routes>
         <Route index element={<Navigate to={adminTabs[0].path} replace />} />
@@ -752,9 +903,7 @@ export function AdminConsole() {
               removeLoadingClientId={getRemoveAuthClientId(pageLoadingTarget)}
               resetClientId={resetClientId}
               resetClientSecretDraft={resetClientSecretDraft}
-              resetSecretLoading={
-                pageLoadingTarget === "resetAuthClientSecret"
-              }
+              resetSecretLoading={pageLoadingTarget === "resetAuthClientSecret"}
               onAdd={() => void handleAddAuthClient()}
               onCancelReset={handleCancelAuthClientReset}
               onClientIdDraftChange={setClientIdDraft}

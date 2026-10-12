@@ -35,11 +35,13 @@ docker compose config
 准备真实 `.env`，确认至少：
 
 - TOKEN_SECRET / 管理员凭证不是示例值；
-- OSS region/bucket/AccessKey 正确；
+- OSS bucket 列表中每项 name/region 正确，共享 AccessKey 对这些 Bucket 具有相应权限；
 - `data/` 目录可持久化且权限受控；
 - 端口未被占用。
 
 若已有 `data/runtime-state.json`，升级前备份它。该文件包含 clientSecret，备份也必须按敏感配置保护。
+
+多 Bucket 配置使用根 `.env` 的 `OSS_BUCKETS` JSON 数组，不写入 runtime-state。未提供该变量时继续读取旧版 `OSS_BUCKET_NAME` / `OSS_REGION`。业务请求未指定 Bucket 时操作第一项，因此升级时必须将原 Bucket 放在第一项；修改配置顺序也会改变默认操作目标。Bucket 配置变更通过重启服务生效。
 
 ## Docker Compose
 

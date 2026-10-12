@@ -19,6 +19,7 @@ import type {
   AliOssServerSdkOptions,
   AliOssTokenResult,
   AliOssUploadResult,
+  DeleteObjectOptions,
   UploadBufferInput,
   UploadImageInput,
   UploadStreamInput,
@@ -29,6 +30,7 @@ export class AliOssServerSdk {
   private readonly baseUrl: string;
   private readonly clientId: string;
   private readonly clientSecret: string;
+  private readonly bucket?: string;
   private readonly objectPrefix: string;
   private readonly imageMaxBytes: number;
   private readonly tokenRefreshBufferMs: number;
@@ -49,6 +51,10 @@ export class AliOssServerSdk {
       options.clientSecret,
       "clientSecret"
     );
+    this.bucket =
+      options.bucket === undefined
+        ? undefined
+        : this.normalizeBucket(options.bucket, "bucket");
     this.objectPrefix = normalizePrefix(options.objectPrefix ?? "uploads");
     this.imageMaxBytes = options.imageMaxBytes ?? DEFAULT_IMAGE_MAX_BYTES;
     this.tokenRefreshBufferMs =
@@ -129,10 +135,12 @@ export class AliOssServerSdk {
       objectKey:
         input.objectKey ??
         buildObjectKey(fileName, input.objectPrefix ?? this.objectPrefix),
+      bucket: input.bucket,
     });
   }
 
   async uploadBuffer(input: UploadBufferInput): Promise<AliOssUploadResult> {
+    const bucket = this.resolveBucket(input.bucket);
     await this.ensureToken();
 
     const fileName = input.fileName?.trim() || "file";
@@ -160,6 +168,7 @@ export class AliOssServerSdk {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
+          ...(bucket ? { "x-oss-bucket": bucket } : {}),
         },
         body: formData,
       }
@@ -170,6 +179,7 @@ export class AliOssServerSdk {
 
   async uploadStream(input: UploadStreamInput): Promise<AliOssUploadResult> {
     try {
+      const bucket = this.resolveBucket(input.bucket);
       input.signal?.throwIfAborted();
       if (input.signal) {
         await this.ensureTokenForUpload(input.signal);
@@ -181,6 +191,10 @@ export class AliOssServerSdk {
         Authorization: `Bearer ${this.accessToken}`,
         "Content-Type": input.mimeType?.trim() || "application/octet-stream",
       };
+
+      if (bucket) {
+        headers["x-oss-bucket"] = bucket;
+      }
 
       Object.assign(headers, createFileNameHeaders(input.fileName));
 
@@ -218,7 +232,11 @@ export class AliOssServerSdk {
     }
   }
 
-  async deleteObject(objectKey: string): Promise<AliOssDeleteResult> {
+  async deleteObject(
+    objectKey: string,
+    options: DeleteObjectOptions = {}
+  ): Promise<AliOssDeleteResult> {
+    const bucket = this.resolveBucket(options.bucket);
     await this.ensureToken();
 
     const body = await requestJson<Partial<AliOssDeleteResult>>(
@@ -230,6 +248,7 @@ export class AliOssServerSdk {
         headers: {
           Authorization: `Bearer ${this.accessToken}`,
           "Content-Type": "application/json",
+          ...(bucket ? { "x-oss-bucket": bucket } : {}),
         },
         body: JSON.stringify({ objectKey }),
       }
@@ -244,8 +263,23 @@ export class AliOssServerSdk {
     return {
       objectKey: body.objectKey,
       deleted: true,
+      ...(body.bucket === undefined ? {} : { bucket: body.bucket }),
       clientId: body.clientId,
     };
+  }
+
+  private resolveBucket(bucket?: string): string | undefined {
+    return bucket === undefined
+      ? this.bucket
+      : this.normalizeBucket(bucket, "bucket");
+  }
+
+  private normalizeBucket(bucket: string, fieldName: string): string {
+    if (typeof bucket !== "string") {
+      throw new AliOssServerSdkError(`${fieldName} must be a string`);
+    }
+
+    return normalizeRequiredString(bucket, fieldName);
   }
 
   private async ensureToken(): Promise<void> {

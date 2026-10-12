@@ -82,13 +82,23 @@ partner-a/uploads/a.png  -> partner-a/uploads/a.png
 
 ## 4. 上传接口
 
+### Bucket 选择（所有 OSS 接口）
+
+- 根 `.env` 的 `OSS_BUCKETS` 为非空 JSON 数组，每项包含独立 `name` / `region`，所有 Bucket 共用 AccessKey ID / Secret 和 secure 配置。提供新配置时优先使用；未提供时兼容旧 `OSS_BUCKET_NAME` / `OSS_REGION` 单 Bucket 配置。
+- 所有业务和 admin OSS 操作均可使用 `x-oss-bucket` 请求头；multipart 上传另支持表单字段 `bucket`，JSON 删除另支持字段 `bucket`。流式上传和 GET 列表仅使用 header。
+- 未指定 Bucket 时使用配置中的第一项，旧调用方无需更新代码。升级时原 Bucket 必须位于第一项；修改顺序会改变默认操作目标。
+- 明确提供的空值、类型错误、重复 header 或无效名称返回 HTTP 400 `INVALID_BUCKET`；header/body 名称冲突返回 `BUCKET_CONFLICT`；名称未配置返回 `BUCKET_NOT_CONFIGURED`。非法输入不会回退默认 Bucket。
+- Header/body 同时出现且相同允许；名称首尾空白归一化，不从对象路径或 URL 推测 Bucket。
+- 上传、删除和列表响应中的 `bucket` 是实际操作的 Bucket。多 Bucket 下对象身份为 `{ bucket, objectKey }`，需要保存并在后续删除时指定相应 Bucket。
+- 业务调用方在各已配置 Bucket 中继续受当前 `clientId/` 目录隔离；本次不引入逐 client 的 Bucket 授权列表，admin/client token 边界及撤销语义不变。
+
 ### Multipart
 
 `POST /api/oss/upload`
 
 - 鉴权：client bearer token。
 - multipart 文件字段：`file`。
-- 可选字段：`objectKey`、`randomFilename`。
+- 可选字段：`objectKey`、`randomFilename`、`bucket`。
 - 最大文件大小由 `UPLOAD_MAX_FILE_SIZE_MB` 决定。
 - server 使用临时文件交给 ali-oss，结束后 best-effort 清理临时文件。
 
@@ -99,7 +109,7 @@ partner-a/uploads/a.png  -> partner-a/uploads/a.png
 - 鉴权：client bearer token。
 - 请求体必须是原始二进制流。
 - 明确拒绝 `multipart/form-data`、`application/json`、`application/x-www-form-urlencoded`。
-- 可选请求头：`x-file-name`、`x-file-name-utf8`、`x-object-key`、`x-random-filename`、`content-length`。
+- 可选请求头：`x-oss-bucket`、`x-file-name`、`x-file-name-utf8`、`x-object-key`、`x-random-filename`、`content-length`。
 - ASCII 文件名使用 `x-file-name`，其值按字面量处理；其中的 `%`、`#` 和空格不进行 URI 解码。旧 SDK 发送的 ASCII 文件名保持此行为。
 - Unicode 文件名使用 `x-file-name-utf8`，格式为 `UTF-8''` 加 RFC 5987 风格的 UTF-8 百分号编码。server 只解码一次，并将得到的原始文件名交给现有 objectKey 推导和 `clientId/` 隔离规则处理。
 - 单个请求只能提供其中一个文件名请求头。两个请求头同时出现、编码前缀为空或不合法、百分号转义格式错误、解码结果不是有效 UTF-8，或解码结果含控制字符时，返回现有格式的 HTTP 400 错误。
@@ -116,7 +126,7 @@ partner-a/uploads/a.png  -> partner-a/uploads/a.png
 `DELETE /api/oss/object`
 
 - 鉴权：client bearer token。
-- JSON 请求体包含 `objectKey`。
+- JSON 请求体包含 `objectKey`，可选 `bucket`；成功响应增加实际操作的 `bucket`。
 - 与上传相同，最终删除路径必须被限制在当前 clientId 目录。
 - `objectKey` 可为相对 key 或已包含当前 clientId 的完整 key；成功响应的 `objectKey` 是归一化后的最终 OSS key。
 - 对象不存在时，OSS `DeleteObject` 成功返回 HTTP 204；ali-oss 6.23.0 的 `delete()` 接受该成功响应。因此删除不存在对象会成功，返回 `{ objectKey, deleted: true }`，调用方可在删除结果不确定时重试。
@@ -128,6 +138,7 @@ partner-a/uploads/a.png  -> partner-a/uploads/a.png
 
 Admin OSS 权限与业务 client 隔离不同：
 
+- `GET /api/admin/oss/buckets` 使用 admin token，返回 `{ buckets: [{ name, region }], defaultBucket }`，来自静态配置，不返回凭证，不枚举云账号下其他 Bucket。
 - `POST /api/admin/oss/upload` 使用 admin token，并按传入 objectKey 直接定位 bucket 对象，不自动增加 clientId。
 - `GET /api/admin/oss/objects` 使用 OSS ListObjectsV2。
 - 分页使用 `continuationToken` / `nextContinuationToken`，不伪造总数。
@@ -145,6 +156,8 @@ Admin OSS 权限与业务 client 隔离不同：
 - `import` 与 `require` 条件分别提供对应模块格式的 TypeScript 声明；消费者从包名导入时应能由 NodeNext 解析到匹配声明。
 - 发布包必须包含这两个运行时入口及其声明文件；内部文件不是公共兼容承诺。
 - 公开客户端为 `AliOssServerSdk` / `createAliOssServerSdk`。
+- SDK 实例配置及各上传输入的 `bucket` 均可选；单次输入优先于实例配置。`deleteObject(objectKey, { bucket })` 保留已有 string 首参数。
+- 两处均未配置时 SDK 不发送 Bucket header，兼容旧 server；指定非默认 Bucket 需要支持多 Bucket 的 server。SDK 删除结果的 `bucket` 为可选，以兼容旧 server 响应。
 - `UploadStreamInput.signal` 是可选的 `AbortSignal`；仅控制 `uploadStream` 的上传请求，不传播到 token 请求或共享 token refresh。
 - `AliOssServerSdkError` 也是包根公开值，两个模块系统均可导入。
 - SDK 不持有阿里云 AccessKey；只持有 ali-oss-server 的 clientId/clientSecret。

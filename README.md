@@ -16,6 +16,7 @@ apps/
 - 调用方签名换取业务 Bearer Token
 - 纯 Node.js SDK 调用封装
 - OSS 文件上传、流式上传、删除
+- 多 Bucket 配置与管理端 Bucket 选择，未指定时默认操作第一个 Bucket
 - 管理员账号密码登录管理端
 - 管理端动态维护调用方 client 凭证
 - 动态 IP 限制
@@ -81,21 +82,30 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 
 复制 `.env.example` 为 `.env` 后填写真实配置。
 
-| 变量                       | 说明                                       |
-| -------------------------- | ------------------------------------------ |
-| `PORT`                     | 服务端口，默认示例为 `9512`                |
-| `TOKEN_SECRET`             | Bearer Token HMAC 签名密钥，至少 16 个字符 |
-| `TOKEN_EXPIRES_IN_SECONDS` | 业务 Token 与管理端 Token 的有效期，单位秒 |
-| `ADMIN_USERNAME`           | 管理端登录账号                             |
-| `ADMIN_PASSWORD`           | 管理端登录密码                             |
-| `OSS_REGION`               | Bucket 所在地域，例如 `oss-cn-hangzhou`    |
-| `OSS_BUCKET_NAME`          | Bucket 名称                                |
-| `OSS_ACCESS_KEY_ID`        | 阿里云 AccessKey ID                        |
-| `OSS_ACCESS_KEY_SECRET`    | 阿里云 AccessKey Secret                    |
-| `OSS_SECURE`               | 是否使用 HTTPS 访问 OSS                    |
-| `UPLOAD_MAX_FILE_SIZE_MB`  | 单文件上传大小限制                         |
+| 变量                       | 说明                                                                  |
+| -------------------------- | --------------------------------------------------------------------- |
+| `PORT`                     | 服务端口，默认示例为 `9512`                                           |
+| `TOKEN_SECRET`             | Bearer Token HMAC 签名密钥，至少 16 个字符                            |
+| `TOKEN_EXPIRES_IN_SECONDS` | 业务 Token 与管理端 Token 的有效期，单位秒                            |
+| `ADMIN_USERNAME`           | 管理端登录账号                                                        |
+| `ADMIN_PASSWORD`           | 管理端登录密码                                                        |
+| `OSS_BUCKETS`              | Bucket 配置 JSON 数组，每项包含 `name`、`region`，第一个为默认 Bucket |
+| `OSS_REGION`               | 未配置 `OSS_BUCKETS` 时使用的旧版单 Bucket 地域                       |
+| `OSS_BUCKET_NAME`          | 未配置 `OSS_BUCKETS` 时使用的旧版单 Bucket 名称                       |
+| `OSS_ACCESS_KEY_ID`        | 阿里云 AccessKey ID                                                   |
+| `OSS_ACCESS_KEY_SECRET`    | 阿里云 AccessKey Secret                                               |
+| `OSS_SECURE`               | 是否使用 HTTPS 访问 OSS                                               |
+| `UPLOAD_MAX_FILE_SIZE_MB`  | 单文件上传大小限制                                                    |
 
 调用方 client 不再通过 `.env` 配置。首次启动后请登录管理端创建 client；服务会将 client 凭证持久化到 `data/runtime-state.json`，并在后续重启时读取该文件中的 `authClients`。该文件包含明文 `clientSecret`，部署时应保护 `data` 目录的读写权限。
+
+多 Bucket 配置示例，各 Bucket 独立指定名称和地域，共用 `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` 和 `OSS_SECURE`：
+
+```dotenv
+OSS_BUCKETS='[{"name":"assets-prod","region":"oss-cn-hangzhou"},{"name":"archive-prod","region":"oss-cn-shanghai"}]'
+```
+
+`OSS_BUCKETS` 优先于旧版 `OSS_BUCKET_NAME` / `OSS_REGION`，必须是非空数组且名称不能重复。修改后重启服务生效，不写入 runtime-state。请求不指定 Bucket 时使用数组第一项；升级时将原 Bucket 放在第一项，现有调用方无需更新代码。调整顺序会改变未指定 Bucket 的上传、删除等请求的操作目标。
 
 ## 管理端
 
@@ -142,11 +152,30 @@ Docker Compose 会读取当前目录的 `.env`，并将主机 `${PORT:-9512}` �
 ### Bucket 查询
 
 - 仅使用 admin token
-- 基于 OSS ListObjectsV2 分页查询当前配置的 Bucket
+- App Bar 的 Bucket 选择器列出 `.env` 中已配置的 Bucket，默认选中第一个
+- 基于 OSS ListObjectsV2 分页查询当前选中的 Bucket，上传也使用该选择
+- 切换 Bucket 回到根目录并重置分页；上传期间不能切换
 - 支持 `prefix` 前缀筛选、`delimiter=/` 目录分组、`maxKeys` 每页数量
 - OSS 不返回总数，管理端使用 `nextContinuationToken` 翻页
 
 ## 接口
+
+### 指定 Bucket
+
+所有 OSS 操作都可以通过 `x-oss-bucket` 请求头指定 Bucket 名称；multipart 上传也支持表单字段 `bucket`，删除也支持 JSON 字段 `bucket`。流式上传的 body 是原始文件内容，只支持请求头。
+
+未指定时操作第一个配置的 Bucket。明确传入空值、非法值或未配置的名称会返回 HTTP 400，不会回退默认 Bucket。Header 和 body 同时传入时必须相同，否则返回 `BUCKET_CONFLICT`。
+
+```bash
+curl -X DELETE http://localhost:9512/api/oss/object \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"archive-prod","objectKey":"uploads/file.png"}'
+```
+
+上传、删除和列表响应返回实际操作的 `bucket`。多 Bucket 对象应保存 `{ bucket, objectKey }`，删除时使用对应 Bucket；业务对象在每个 Bucket 中仍受 `clientId/` 前缀隔离。
+
+管理员可以通过 `GET /api/admin/oss/buckets` 查询配置列表，响应为 `{ buckets: [{ name, region }], defaultBucket }`，接口需要 admin token，不返回凭证。
 
 ### 健康检查
 

@@ -65,3 +65,8 @@ export type AdminUploadResponse = {
 export type AdminUploadConfig = {
   maxFileSizeBytes: number;
 };
+
+export type AdminBucketsResponse = {
+  buckets: Array<{ name: string; region: string }>;
+  defaultBucket: string;
+};

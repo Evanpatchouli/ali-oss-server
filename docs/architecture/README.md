@@ -81,6 +81,7 @@ Admin OSS 上传使用完整 bucket object key，不自动加 clientId 前缀；
 当前没有数据库。
 
 - 静态敏感配置：根 `.env`
+- 静态 Bucket 列表：根 `.env` 的 `OSS_BUCKETS`，每项独立 name/region，共享 OSS 凭证；修改后重启生效
 - 动态状态：内存中的 auth clients / allowlist / rate limit
 - 动态状态持久化：`data/runtime-state.json`
 - 写入策略：先写 `runtime-state.tmp`，再 rename 原子替换
@@ -90,7 +91,7 @@ Admin OSS 上传使用完整 bucket object key，不自动加 clientId 前缀；
 
 ## 外部依赖
 
-- Aliyun OSS：服务端通过 `ali-oss` 访问单一配置 bucket。
+- Aliyun OSS：服务端通过 `ali-oss` 为配置中的每个 Bucket 缓存独立客户端，固定 name/region；请求显式选择 Bucket，缺失时使用配置第一项。OSS I/O 和 URL 生成使用同一客户端，避免共享实例切换 Bucket 带来的并发串桶。
 - 本项目没有数据库、Redis、Kafka 等外部状态组件。
 - 容器部署只运行本应用；Compose 不声明额外依赖服务。
 
